@@ -2,8 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { readSecret } from '@/lib/secrets';
 
-const MAGIC_LINK_TTL = 600; // 10 minutes
-const SESSION_MAX_AGE = 28800; // 8 hours
+const SCAN_TOKEN_TTL = 604800; // 7 days
 
 function getAuthSecret(): string {
 	const secret = readSecret('auth_secret', 'AUTH_SECRET');
@@ -21,62 +20,50 @@ function hmacVerify(data: string, signature: string): boolean {
 	return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
-// ── Magic Link Tokens ──
+// ── Scan Token ──
+// Encodes: email, targetUrl, includeSummary, nonce, expiresAt, signature
 
-export function generateMagicToken(email: string): string {
-	const nonce = randomBytes(16).toString('hex');
-	const expiresAt = Math.floor(Date.now() / 1000) + MAGIC_LINK_TTL;
-	const payload = `${email}:${nonce}:${expiresAt}`;
-	const signature = hmacSign(payload);
-	return Buffer.from(`${payload}:${signature}`).toString('base64url');
+export interface ScanTokenPayload {
+	email: string;
+	targetUrl: string;
+	includeSummary: boolean;
 }
 
-export function verifyMagicToken(token: string): { valid: boolean; email?: string; error?: string } {
+export function generateScanToken(payload: ScanTokenPayload): string {
+	const nonce = randomBytes(16).toString('hex');
+	const expiresAt = Math.floor(Date.now() / 1000) + SCAN_TOKEN_TTL;
+	const summary = payload.includeSummary ? '1' : '0';
+	const data = `${payload.email}|${payload.targetUrl}|${summary}|${nonce}|${expiresAt}`;
+	const signature = hmacSign(data);
+	return Buffer.from(`${data}|${signature}`).toString('base64url');
+}
+
+export function verifyScanToken(token: string): { valid: boolean; payload?: ScanTokenPayload; error?: string } {
 	try {
 		const decoded = Buffer.from(token, 'base64url').toString();
-		const parts = decoded.split(':');
-		if (parts.length !== 4) return { valid: false, error: 'Ongeldig token formaat' };
+		const parts = decoded.split('|');
+		if (parts.length !== 6) return { valid: false, error: 'Ongeldig token formaat' };
 
-		const [email, nonce, expiresAtStr, signature] = parts;
+		const [email, targetUrl, summary, nonce, expiresAtStr, signature] = parts;
 		const expiresAt = Number.parseInt(expiresAtStr, 10);
 		const now = Math.floor(Date.now() / 1000);
 
-		if (now > expiresAt) return { valid: false, error: 'Token verlopen' };
-		if (!hmacVerify(`${email}:${nonce}:${expiresAtStr}`, signature)) {
-			return { valid: false, error: 'Ongeldige handtekening' };
+		if (now > expiresAt) return { valid: false, error: 'Link verlopen' };
+
+		const data = `${email}|${targetUrl}|${summary}|${nonce}|${expiresAt}`;
+		if (!hmacVerify(data, signature)) {
+			return { valid: false, error: 'Ongeldige link' };
 		}
 
-		return { valid: true, email };
+		return {
+			valid: true,
+			payload: {
+				email,
+				targetUrl,
+				includeSummary: summary === '1',
+			},
+		};
 	} catch {
-		return { valid: false, error: 'Token kon niet worden gelezen' };
-	}
-}
-
-// ── Session Cookies ──
-
-export function createSessionCookie(email: string): { value: string; maxAge: number } {
-	const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MAX_AGE;
-	const payload = `${email}:${expiresAt}`;
-	const signature = hmacSign(payload);
-	const value = Buffer.from(`${payload}:${signature}`).toString('base64url');
-	return { value, maxAge: SESSION_MAX_AGE };
-}
-
-export function verifySession(cookieValue: string): { valid: boolean; email?: string } {
-	try {
-		const decoded = Buffer.from(cookieValue, 'base64url').toString();
-		const parts = decoded.split(':');
-		if (parts.length !== 3) return { valid: false };
-
-		const [email, expiresAtStr, signature] = parts;
-		const expiresAt = Number.parseInt(expiresAtStr, 10);
-		const now = Math.floor(Date.now() / 1000);
-
-		if (now > expiresAt) return { valid: false };
-		if (!hmacVerify(`${email}:${expiresAtStr}`, signature)) return { valid: false };
-
-		return { valid: true, email };
-	} catch {
-		return { valid: false };
+		return { valid: false, error: 'Link kon niet worden gelezen' };
 	}
 }
