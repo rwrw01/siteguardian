@@ -1,0 +1,143 @@
+services:
+
+  # One-shot: push prisma schema to database, then exit
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    container_name: siteguardian-migrate
+    networks:
+      - sg-internal
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    command: ["npx", "prisma", "db", "push", "--skip-generate"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: siteguardian-app
+    networks:
+      - sg-internal
+      - net-fe-siteguardian
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      PORT: "8080"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: "production"
+    secrets:
+      - deepseek_api_key
+      - auth_secret
+      - resend_api_key
+      - scan_email_from
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          pids: 100
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=net-fe-siteguardian"
+      - "traefik.http.routers.siteguardian.rule=Host(`siteguardian.publicvibes.nl`)"
+      - "traefik.http.routers.siteguardian.entrypoints=websecure"
+      - "traefik.http.routers.siteguardian.tls.certresolver=letsencrypt"
+      - "traefik.http.services.siteguardian.loadbalancer.server.port=8080"
+      - "traefik.http.routers.siteguardian.middlewares=crowdsec@file,rate-limit@file"
+
+  postgres:
+    image: postgres:16-alpine@sha256:b7587f3cb74f4f4b2a4f9d67f052edbf95eb93f4fec7c5ada3792546caaf7383
+    container_name: postgres-siteguardian
+    networks:
+      - sg-internal
+    environment:
+      POSTGRES_DB: siteguardian
+      POSTGRES_USER: siteguardian
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+      - FOWNER
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          pids: 100
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siteguardian"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    secrets:
+      - db_password
+
+volumes:
+  pg-data:
+
+networks:
+  sg-internal:
+    internal: true
+  net-fe-siteguardian:
+    external: true
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  deepseek_api_key:
+    file: ./secrets/deepseek_api_key
+  auth_secret:
+    file: ./secrets/auth_secret
+  resend_api_key:
+    file: ./secrets/resend_api_key
+  scan_email_from:
+    file: ./secrets/scan_email_from

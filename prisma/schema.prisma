@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ScanStatus {
+  QUEUED
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+enum ReportCategoryType {
+  SECURITY
+  WCAG
+  COMMON_GROUND
+  CODE_QUALITY
+  INFRASTRUCTURE
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id         String   @id @default(cuid())
+  keycloakId String   @unique @map("keycloak_id")
+  email      String   @unique
+  name       String?
+  role       UserRole @default(USER)
+  createdAt  DateTime @default(now()) @map("created_at")
+  scans      Scan[]
+
+  @@map("users")
+}
+
+model Scan {
+  id          String     @id @default(cuid())
+  userId      String?    @map("user_id")
+  repoUrl     String     @map("repo_url")
+  status      ScanStatus @default(QUEUED)
+  guestIp     String?    @map("guest_ip")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  completedAt DateTime?  @map("completed_at")
+  user        User?      @relation(fields: [userId], references: [id])
+  report      Report?
+
+  @@index([userId])
+  @@index([guestIp, createdAt])
+  @@map("scans")
+}
+
+model Report {
+  id            String           @id @default(cuid())
+  scanId        String           @unique @map("scan_id")
+  overallRating String           @map("overall_rating")
+  overallScore  Int              @map("overall_score")
+  metadata      Json?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  scan          Scan             @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  categories    ReportCategory[]
+
+  @@map("reports")
+}
+
+model ReportCategory {
+  id              String             @id @default(cuid())
+  reportId        String             @map("report_id")
+  category        ReportCategoryType
+  rating          String
+  score           Int
+  findings        Json               @default("[]")
+  recommendations Json               @default("[]")
+  report          Report             @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, category])
+  @@map("report_categories")
+}

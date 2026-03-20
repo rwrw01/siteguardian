@@ -1,0 +1,210 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: siteguardian-app
+    networks:
+      - sg-internal
+      - net-fe-siteguardian
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      REDIS_URL: "redis://${REDIS_HOST}:${REDIS_PORT}"
+      PORT: "8080"
+      NODE_ENV: "production"
+      NEXTAUTH_URL: "https://${PUBLIC_DOMAIN}"
+      NEXTAUTH_SECRET_FILE: /run/secrets/nextauth_secret
+      KEYCLOAK_CLIENT_ID_FILE: /run/secrets/keycloak_client_id
+      KEYCLOAK_CLIENT_SECRET_FILE: /run/secrets/keycloak_client_secret
+      KEYCLOAK_ISSUER: "https://auth.athide.nl/realms/siteguardian"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          pids: 100
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=net-fe-siteguardian"
+      - "traefik.http.routers.siteguardian.rule=Host(`${PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.siteguardian.entrypoints=websecure"
+      - "traefik.http.routers.siteguardian.tls.certresolver=letsencrypt"
+      - "traefik.http.services.siteguardian.loadbalancer.server.port=8080"
+      - "traefik.http.routers.siteguardian.middlewares=crowdsec@file,security-headers@file,rate-limit@file"
+    secrets:
+      - nextauth_secret
+      - keycloak_client_id
+      - keycloak_client_secret
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    container_name: siteguardian-worker
+    networks:
+      - sg-internal
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      REDIS_URL: "redis://${REDIS_HOST}:${REDIS_PORT}"
+      NODE_ENV: "production"
+      DEEPSEEK_API_KEY_FILE: /run/secrets/deepseek_api_key
+      GITHUB_TOKEN_FILE: /run/secrets/github_token
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          pids: 100
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'process.exit(0)' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    secrets:
+      - deepseek_api_key
+      - github_token
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-siteguardian
+    networks:
+      - sg-internal
+    environment:
+      POSTGRES_DB: siteguardian
+      POSTGRES_USER: siteguardian
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+      - FOWNER
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          pids: 100
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siteguardian"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    secrets:
+      - db_password
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-siteguardian
+    networks:
+      - sg-internal
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 50
+    restart: on-failure:5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  pg-data:
+  redis-data:
+
+networks:
+  sg-internal:
+    internal: true
+  net-fe-siteguardian:
+    external: true
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  nextauth_secret:
+    file: ./secrets/nextauth_secret
+  keycloak_client_id:
+    file: ./secrets/keycloak_client_id
+  keycloak_client_secret:
+    file: ./secrets/keycloak_client_secret
+  deepseek_api_key:
+    file: ./secrets/deepseek_api_key
+  github_token:
+    file: ./secrets/github_token

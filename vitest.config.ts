@@ -9,7 +9,7 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/service/**', 'src/data/**'],
+      include: ['src/service/**', 'src/data/**', 'src/process/**'],
       thresholds: { lines: 80 },
     },
   },

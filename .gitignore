@@ -4,3 +4,7 @@ node_modules/
 .env.local
 *.tsbuildinfo
 coverage/
+scan-results/
+test-results/
+playwright-report/
+secrets/
