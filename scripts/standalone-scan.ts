@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 
 import {
 	explainTrackers,
+	explainTrackersPlaintext,
 	generateExecutiveSummary,
 	generateHtmlReport,
 	scanWebsite,
@@ -47,7 +48,8 @@ async function main() {
 		const mistralKey = process.env.MISTRAL_API_KEY ?? '';
 		if (mistralKey) {
 			console.log('\nBestuurders-samenvatting genereren via Mistral...');
-			executiveSummary = await generateExecutiveSummary(result);
+			const trackerContext = explainTrackersPlaintext(browserData);
+			executiveSummary = await generateExecutiveSummary(result, trackerContext);
 			if (executiveSummary) console.log('  Samenvatting ontvangen');
 		} else {
 			console.log('\nBestuurders-samenvatting: geen API key, overgeslagen');

@@ -20,6 +20,7 @@ export { scoreToRating } from './_analyzers';
 export {
 	countSeverities,
 	explainTrackers,
+	explainTrackersPlaintext,
 	generateExecutiveSummary,
 	generateHtmlReport,
 } from './_report';

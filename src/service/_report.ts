@@ -64,13 +64,41 @@ export function explainTrackers(data: BrowserData): string {
 	return found.map((e) => `<li style="margin-bottom:0.5rem">${e}</li>`).join('');
 }
 
+/** Plain-text version of tracker explanations for use in AI prompts. */
+export function explainTrackersPlaintext(data: BrowserData): string {
+	const trackerInfo: Record<string, string> = {
+		'google-analytics.com': 'Google Analytics (VS): volgt surfgedrag, opgeslagen op Google-servers',
+		'googletagmanager.com': 'Google Tag Manager (VS): laadt andere tracking-scripts',
+		'doubleclick.net': 'Google DoubleClick (VS): advertentienetwerk, volgt voor gerichte reclame',
+		'facebook.net': 'Facebook Pixel (VS): koppelt websitebezoek aan Facebook/Instagram profiel',
+		'hotjar.com': 'Hotjar (VS): neemt muisbewegingen en klikken op, "opname" van bezoekersscherm',
+		'clarity.ms': 'Microsoft Clarity (VS): neemt sessies op, elke klik en scroll naar Microsoft',
+		'linkedin.com': 'LinkedIn (VS): koppelt websitebezoeken aan LinkedIn-profielen',
+		'siteimproveanalytics.com': 'Siteimprove Analytics (EU): meet websitegebruik, vereist toestemming',
+	};
+
+	const found: string[] = [];
+	for (const domain of data.externalDomains) {
+		for (const [trackerDomain, explanation] of Object.entries(trackerInfo)) {
+			if (domain.includes(trackerDomain) && !found.includes(explanation)) {
+				found.push(explanation);
+			}
+		}
+	}
+
+	return found.join('\n');
+}
+
 /**
  * Generates an executive summary using Mistral AI for non-technical stakeholders.
  * Returns null if MISTRAL_API_KEY is not set or if the API call fails.
  * @param result - Full scan result
  * @returns Executive summary text or null
  */
-export async function generateExecutiveSummary(result: ScanResult): Promise<string | null> {
+export async function generateExecutiveSummary(
+	result: ScanResult,
+	trackerDetails?: string,
+): Promise<string | null> {
 	if (!process.env.MISTRAL_API_KEY) {
 		console.log('  Mistral API key niet gevonden — bestuurders-samenvatting overgeslagen');
 		return null;
@@ -131,7 +159,7 @@ ${highFindings.join('\n')}`
 }
 
 Overige bevindingen (kort samenvatten):
-${otherFindings.join('\n')}`;
+${otherFindings.join('\n')}${trackerDetails ? `\n\nAanvullende context over gevonden trackers (gebruik dit om de tracker-bevinding concreter uit te leggen):\n${trackerDetails}` : ''}`;
 
 	try {
 		const resp = await fetch(`${MISTRAL_BASE_URL}/v1/chat/completions`, {
@@ -316,8 +344,6 @@ export function generateHtmlReport(
 </table>
 
 ${aiSection}
-
-${trackerSection}
 
 <!-- Technical details per category -->
 <h2 style="margin-top:2rem">Bevindingen per onderdeel</h2>

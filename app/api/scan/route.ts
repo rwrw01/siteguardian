@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authorizeScan } from '@/process/scan-authorization';
 import {
 	explainTrackers,
+	explainTrackersPlaintext,
 	generateExecutiveSummary,
 	generateHtmlReport,
 	scanWebsite,
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
 
 	try {
 		const { result, browserData } = await scanWebsite(targetUrl);
-		const summary = includeSummary ? await generateExecutiveSummary(result) : null;
+		const trackerContext = explainTrackersPlaintext(browserData);
+		const summary = includeSummary ? await generateExecutiveSummary(result, trackerContext) : null;
 		const trackerHtml = explainTrackers(browserData);
 		const htmlReport = generateHtmlReport(result, summary, trackerHtml);
 
