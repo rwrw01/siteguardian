@@ -360,6 +360,10 @@ export function generateHtmlReport(
 	<p style="margin:0;font-size:0.9rem;color:#1b5e20"><strong>Dit is een gratis en onafhankelijke scan.</strong> Site Guardian is open source (EUPL-1.2) en vraagt geen geld voor rapporten. Elke gemeente verdient inzicht in de digitale veiligheid en privacy van haar website — zonder factuur.</p>
 </section>
 
+<section style="background:#fff8e1;border:1px solid #f9a825;border-radius:8px;padding:1rem;margin-bottom:1.5rem">
+	<p style="margin:0;font-size:0.9rem;color:#5d4037"><strong>Belangrijk:</strong> automatische scans moeten altijd door een specialist worden geduid. Fout-positieve bevindingen kunnen snel leiden tot ongewenste en onterechte paniek. Laat bij bevindingen altijd een specialist meekijken die u een persoonlijke toelichting kan geven op wat er daadwerkelijk aan de hand is.</p>
+</section>
+
 <!-- Summary table: totals -->
 <h2>Overzicht</h2>
 <table>
@@ -454,6 +458,7 @@ ${Object.entries(result.categories)
 
 <h2 style="margin-top:2rem">Over dit rapport</h2>
 <p>De technische bevindingen zijn vastgesteld door geautomatiseerde, regel-gebaseerde controles. Er wordt geen AI gebruikt voor de bevindingen zelf.${executiveSummary ? ' De bestuurders-samenvatting is opgesteld door AI (Mistral) en is in het rapport duidelijk als zodanig gemarkeerd.' : ''}</p>
+<p><strong>Disclaimer:</strong> dit rapport is het resultaat van een geautomatiseerde scan. Automatische scans kunnen fout-positieve bevindingen bevatten en missen soms context die alleen een specialist kan bieden. Wij raden aan om de bevindingen altijd te laten beoordelen door een specialist die u een persoonlijke toelichting kan geven. Neem geen overhaaste beslissingen op basis van dit rapport alleen.</p>
 <p>Site Guardian is open source (EUPL-1.2), volledig gratis, en heeft geen commercieel belang. Voor het scannen van broncode en repositories: <a href="https://gitguardian.publicvibes.nl">gitguardian.publicvibes.nl</a></p>
 
 <hr style="border:none;border-top:1px solid #ddd;margin:2rem 0 1rem">
