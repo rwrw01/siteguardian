@@ -156,7 +156,10 @@ Regels:
 		.filter(Boolean)
 		.join(', ');
 
-	const userMessage = `Schrijf een bestuurderssamenvatting voor het scanrapport van de gemeentewebsite ${result.targetUrl}.
+	const hasHighOrCritical = highFindings.length > 0;
+
+	const userMessage = hasHighOrCritical
+		? `Schrijf een bestuurderssamenvatting voor het scanrapport van de gemeentewebsite ${result.targetUrl}.
 
 Begin met deze context: "Bij deze scan zijn ${aantalIntro} bevindingen vastgesteld. Iedere website heeft aandachtspunten — dat is normaal en verandert in de loop van de tijd. Hieronder leggen wij uit wat er is gevonden en wat uw aandacht verdient."
 
@@ -167,15 +170,24 @@ Structuur daarna:
 
 Sluit af met deze zin, letterlijk: "Deze samenvatting is opgesteld door Mistral, een Europese AI, op basis van de zuivere regel-gebaseerde scan-uitkomsten hierboven. De bevindingen zelf zijn vastgesteld zonder AI."
 
-${
-	highFindings.length > 0
-		? `Hoge en kritieke bevindingen (besteed hier de meeste aandacht aan):
-${highFindings.join('\n')}`
-		: 'Er zijn geen hoge of kritieke bevindingen.'
-}
+Hoge en kritieke bevindingen (besteed hier de meeste aandacht aan):
+${highFindings.join('\n')}
 
 Overige bevindingen (kort samenvatten):
-${otherFindings.join('\n')}${trackerDetails ? `\n\nAanvullende context over gevonden trackers (gebruik dit om de tracker-bevinding concreter uit te leggen):\n${trackerDetails}` : ''}`;
+${otherFindings.join('\n')}${trackerDetails ? `\n\nAanvullende context over gevonden trackers (gebruik dit om de tracker-bevinding concreter uit te leggen):\n${trackerDetails}` : ''}`
+		: `Schrijf een bestuurderssamenvatting voor het scanrapport van de gemeentewebsite ${result.targetUrl}.
+
+Er zijn geen hoge of kritieke bevindingen. Begin met deze context: "Bij deze scan zijn ${aantalIntro} bevindingen vastgesteld. Er zijn geen bevindingen die direct ingrijpen vereisen op basis van wet- en regelgeving."
+
+Structuur:
+1. Positieve boodschap: de website voldoet op dit moment aan de onderdelen die wij scannen en past, voor zover wij kunnen detecteren, bij de verplichte wet- en regelgeving voor overheidswebsites. Iedere website heeft verbeterpunten — dat is normaal en verandert in de loop van de tijd.
+2. Korte risico-inventarisatie van de gevonden midden- en laag-risico bevindingen (max 4 zinnen, gewoon lopende tekst, geen opsomming)
+3. Sluit af met een aanmoediging om periodiek te blijven scannen omdat websites en regelgeving veranderen
+
+Sluit af met deze zin, letterlijk: "Deze samenvatting is opgesteld door Mistral, een Europese AI, op basis van de zuivere regel-gebaseerde scan-uitkomsten hierboven. De bevindingen zelf zijn vastgesteld zonder AI."
+
+Bevindingen:
+${otherFindings.join('\n')}${trackerDetails ? `\n\nAanvullende context over gevonden trackers:\n${trackerDetails}` : ''}`;
 
 	try {
 		const resp = await fetch(`${MISTRAL_BASE_URL}/v1/chat/completions`, {
