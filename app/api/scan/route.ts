@@ -148,12 +148,16 @@ export async function POST(request: NextRequest) {
 
 	const { name, email, targetUrl, includeSummary } = parsed.data;
 
+	// Determine public base URL (behind Traefik, request.url is internal)
+	const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+	const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'siteguardian.publicvibes.nl';
+	const baseUrl = `${proto}://${host}`;
+
 	// Honeypot check — bots fill in the hidden "website" field
 	if (parsed.data.website) {
-		// Silently redirect as if success (don't reveal to bot)
 		const domain = new URL(targetUrl).hostname.replace(/^www\./, '');
 		return NextResponse.redirect(
-			new URL(`/?status=scan_complete&domain=${encodeURIComponent(domain)}&email=${encodeURIComponent(email)}`, request.url),
+			new URL(`/?status=scan_complete&domain=${encodeURIComponent(domain)}&email=${encodeURIComponent(email)}`, baseUrl),
 		);
 	}
 
@@ -202,7 +206,7 @@ export async function POST(request: NextRequest) {
 	return NextResponse.redirect(
 		new URL(
 			`/?status=scan_complete&domain=${encodeURIComponent(domain)}&email=${encodeURIComponent(email)}`,
-			request.url,
+			baseUrl,
 		),
 	);
 }
