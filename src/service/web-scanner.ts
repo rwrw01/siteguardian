@@ -248,3 +248,44 @@ export async function scanWebsite(
 
 	return { result, browserData };
 }
+
+/**
+ * Renders an HTML string to a PDF buffer using Playwright.
+ * @param html - Full HTML document string
+ * @returns PDF as Buffer
+ */
+/**
+ * Renders an HTML string to a PDF buffer using Playwright.
+ * Injects print-optimized CSS for clean A4 pagination.
+ * @param html - Full HTML document string
+ * @returns PDF as Buffer
+ */
+export async function renderPdf(html: string): Promise<Buffer> {
+	// Inject PDF pagination CSS before </head>
+	const pdfCss = `<style>
+		@page { size: A4; margin: 20mm 15mm; }
+		body { font-size: 11pt; }
+		section, details, .finding-card { page-break-inside: avoid; }
+		details[open] { page-break-inside: auto; }
+		details[open] > div > div { page-break-inside: avoid; }
+		h1, h2, h3 { page-break-after: avoid; }
+		table { page-break-inside: avoid; }
+		tr { page-break-inside: avoid; }
+		.page-break { page-break-before: always; }
+	</style>`;
+	const pdfHtml = html.replace('</head>', `${pdfCss}</head>`);
+
+	const browser = await chromium.launch({ headless: true });
+	const page = await browser.newPage();
+	await page.setContent(pdfHtml, { waitUntil: 'networkidle' });
+	const pdf = await page.pdf({
+		format: 'A4',
+		margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
+		printBackground: true,
+		displayHeaderFooter: true,
+		headerTemplate: '<span></span>',
+		footerTemplate: '<div style="font-size:8pt;color:#888;width:100%;text-align:center;padding:0 15mm">Site Guardian — publicvibes.nl &nbsp;|&nbsp; Pagina <span class="pageNumber"></span> van <span class="totalPages"></span></div>',
+	});
+	await browser.close();
+	return Buffer.from(pdf);
+}

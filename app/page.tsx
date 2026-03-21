@@ -25,22 +25,11 @@ function HomeContent() {
 				</p>
 			</section>
 
-			{status === 'email_sent' && (
-				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
-					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Controleer uw e-mail</p>
-					<p style={{ color: '#d1d5db', fontSize: 14 }}>
-						We hebben een bevestigingsmail gestuurd naar <strong>{email}</strong>.
-						Klik op de link in de e-mail om de scan van <strong>{domain}</strong> te starten.
-						De link is 7 dagen geldig.
-					</p>
-				</section>
-			)}
-
 			{status === 'scan_complete' && (
 				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
 					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Scan afgerond</p>
 					<p style={{ color: '#d1d5db', fontSize: 14 }}>
-						Het rapport voor <strong>{domain}</strong> is gedownload.
+						Het rapport voor <strong>{domain}</strong> is per e-mail verstuurd naar <strong>{email}</strong>.
 					</p>
 				</section>
 			)}
@@ -62,6 +51,17 @@ function HomeContent() {
 					<h2 id="scan-heading" style={{ fontSize: 18, marginBottom: 20 }}>Nieuwe scan</h2>
 					<form action="/api/scan" method="POST">
 						<div style={{ marginBottom: 16 }}>
+							<label htmlFor="name">Uw naam</label>
+							<input
+								id="name"
+								name="name"
+								type="text"
+								placeholder="Jan Jansen"
+								required
+							/>
+						</div>
+
+						<div style={{ marginBottom: 16 }}>
 							<label htmlFor="email">Uw e-mailadres</label>
 							<input
 								id="email"
@@ -72,9 +72,8 @@ function HomeContent() {
 								aria-describedby="email-help"
 							/>
 							<p id="email-help" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: 4 }}>
-								U ontvangt een bevestigingsmail. Na bevestiging wordt de scan uitgevoerd
-								en het rapport als download aangeboden. U kunt alleen websites scannen
-								die bij uw e-maildomein horen.
+								Het rapport wordt als PDF naar dit adres verstuurd.
+								U kunt alleen websites scannen die bij uw e-maildomein horen.
 							</p>
 						</div>
 

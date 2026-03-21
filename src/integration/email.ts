@@ -73,17 +73,46 @@ export async function sendScanConfirmation(
 
 export async function sendScanReport(
 	to: string,
+	name: string,
 	subject: string,
-	htmlContent: string,
+	filename: string,
+	pdfBuffer: Buffer,
 ): Promise<{ success: boolean; error?: string }> {
+	const html = `<!DOCTYPE html>
+<html lang="nl">
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;max-width:520px;margin:0 auto;padding:32px;line-height:1.7">
+
+<h2 style="font-size:20px;margin-bottom:4px">Uw Site Guardian rapport</h2>
+<p style="color:#888;font-size:14px;margin-bottom:20px">Gratis website compliance scanner</p>
+
+<p>Beste ${name},</p>
+
+<p>In de bijlage vindt u het scanrapport als PDF. Het rapport bevat bevindingen op het gebied van beveiliging, toegankelijkheid, privacy, snelheid en overheidsstandaarden.</p>
+
+<p>Heeft u vragen over de bevindingen? Neem gerust contact met ons op via <a href="https://publicvibes.nl" style="color:#154273">publicvibes.nl</a>.</p>
+
+<hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+<p style="font-size:12px;color:#888;text-align:center">Dit rapport is gratis ter beschikking gesteld vanuit <a href="https://publicvibes.nl" style="color:#888">publicvibes.nl</a>, een open source initiatief van Ralph Wagter.</p>
+
+</body>
+</html>`;
+
 	try {
 		await getTransporter().sendMail({
 			from: 'Site Guardian <info@publicvibes.nl>',
 			to,
 			subject,
-			html: htmlContent,
+			html,
+			attachments: [
+				{
+					filename,
+					content: pdfBuffer,
+					contentType: 'application/pdf',
+				},
+			],
 		});
-		console.log(`[email] Rapport verstuurd naar ${to}`);
+		console.log(`[email] Rapport (PDF) verstuurd naar ${to}`);
 		return { success: true };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Onbekende fout';
