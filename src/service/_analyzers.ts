@@ -92,7 +92,7 @@ export function analyzeSecurityHeaders(data: BrowserData): CategoryResult {
 			title: 'HSTS header ontbreekt',
 			description:
 				'Strict-Transport-Security header is niet ingesteld. Zonder HSTS kan een aanvaller via een downgrade-aanval HTTPS omzeilen.',
-			severity: 'high',
+			severity: 'medium',
 			location: 'HTTP Response Headers',
 			recommendation:
 				'Voeg toe: Strict-Transport-Security: max-age=63072000; includeSubDomains; preload',
@@ -115,7 +115,7 @@ export function analyzeSecurityHeaders(data: BrowserData): CategoryResult {
 			title: 'Content-Security-Policy ontbreekt',
 			description:
 				'Geen CSP header gevonden. CSP voorkomt XSS-aanvallen door te beperken welke bronnen geladen mogen worden.',
-			severity: 'high',
+			severity: 'medium',
 			location: 'HTTP Response Headers',
 			recommendation:
 				'Stel een Content-Security-Policy in die minimaal default-src, script-src en style-src definieert.',
@@ -585,7 +585,7 @@ export function analyzePerformance(data: BrowserData): CategoryResult {
 		findings.push({
 			title: `Hoog aantal HTTP requests (${totalResources})`,
 			description: `De pagina laadt ${totalResources} resources. Elk request voegt latentie toe.`,
-			severity: totalResources > 200 ? 'high' : 'medium',
+			severity: 'medium',
 			location: `${totalResources} requests`,
 			recommendation: 'Combineer en minimaliseer CSS/JS bestanden. Gebruik HTTP/2 multiplexing.',
 			reference: 'Web Performance Best Practices',
@@ -596,7 +596,7 @@ export function analyzePerformance(data: BrowserData): CategoryResult {
 		findings.push({
 			title: `${data.externalDomains.length} externe domeinen (DNS lookups)`,
 			description: 'Elke extern domein vereist een DNS lookup, TCP verbinding en TLS handshake.',
-			severity: data.externalDomains.length > 15 ? 'high' : 'medium',
+			severity: 'medium',
 			location: data.externalDomains.slice(0, 5).join(', '),
 			recommendation: 'Minimaliseer externe domeinen. Host fonts en veelgebruikte scripts lokaal.',
 			reference: 'Reduce DNS lookups',
@@ -608,7 +608,7 @@ export function analyzePerformance(data: BrowserData): CategoryResult {
 		findings.push({
 			title: `${blockingScripts.length} render-blocking script(s)`,
 			description: 'Scripts zonder async of defer blokkeren het renderen van de pagina.',
-			severity: blockingScripts.length > 3 ? 'high' : 'medium',
+			severity: 'medium',
 			location: blockingScripts
 				.slice(0, 3)
 				.map((s) => s.src.split('/').pop())
