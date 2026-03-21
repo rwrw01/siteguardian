@@ -153,9 +153,11 @@ function HomeContent() {
 				textAlign: 'center',
 			}}>
 				<p style={{ fontSize: 15, color: '#d1d5db', lineHeight: 1.7 }}>
-					Uit onderzoek (2026) blijkt dat veel gemeentewebsites onbewust gegevens van
-					inwoners delen met grote techbedrijven. Wij vinden het onethisch om hiervoor
-					honderden euro's te vragen. Site Guardian is en blijft gratis.
+					Gemeenten komen regelmatig in het nieuws omdat hun website gegevens van inwoners
+					deelt zonder toestemming. Raadsleden stellen vragen, ambtenaren moeten in allerijl
+					antwoorden leveren. Ondertussen vragen onderzoekers honderden euro's voor een
+					rapport. Natuurlijk moeten gemeenten de boel op orde hebben — maar dat kan ook
+					zonder kosten. Daarom dit initiatief.
 				</p>
 			</section>
 		</>
