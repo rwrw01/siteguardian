@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
 	output: 'standalone',
 	poweredByHeader: false,
 	reactStrictMode: true,
-	serverExternalPackages: ['@prisma/client'],
+	serverExternalPackages: ['@prisma/client', 'playwright', 'playwright-core'],
 };
 
 export default nextConfig;

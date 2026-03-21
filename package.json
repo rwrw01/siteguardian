@@ -26,7 +26,8 @@
     "zod": "3.24.3",
     "resend": "4.1.2",
     "@prisma/client": "6.5.0",
-    "@octokit/rest": "21.1.1"
+    "@octokit/rest": "21.1.1",
+    "playwright": "1.50.1"
   },
   "devDependencies": {
     "typescript": "5.7.3",

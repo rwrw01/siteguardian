@@ -1,9 +1,12 @@
 # Build stage
-FROM node:22-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00 AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
+
+# Install Playwright chromium and its OS dependencies
+RUN npx playwright install --with-deps chromium
 
 COPY prisma ./prisma/
 RUN npx prisma generate
@@ -13,19 +16,45 @@ RUN mkdir -p public
 RUN npm run build
 
 # Migration stage — includes prisma CLI for db push
-FROM node:22-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00 AS migrator
+FROM node:22-bookworm-slim AS migrator
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 
-# Runtime stage — zero build tools, non-root, minimal
-FROM node:22-alpine@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00 AS runner
+# Runtime stage — non-root, Playwright chromium available
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=8080
+
+# Install chromium runtime dependencies for Playwright
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libatspi2.0-0 \
+    libx11-6 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
@@ -36,6 +65,14 @@ COPY --from=builder --chown=1001:1001 /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Copy Playwright browsers from builder stage
+COPY --from=builder /root/.cache/ms-playwright /home/nextjs/.cache/ms-playwright
+RUN chown -R 1001:1001 /home/nextjs/.cache
+
+# Copy Playwright package so it can find the browser
+COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
+COPY --from=builder /app/node_modules/@playwright ./node_modules/@playwright
 
 USER 1001
 

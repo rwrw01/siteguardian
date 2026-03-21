@@ -1,131 +1,249 @@
-import { z } from 'zod';
+// Web scanner service: Playwright-based site scanner that collects browser data
+// and runs all rule-based analyzers. This is the single source of truth for scanning
+// logic, used by both the API route and the standalone CLI script.
 
-type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+import { chromium } from 'playwright';
 
-interface Finding {
-	title: string;
-	description: string;
-	severity: Severity;
-	location?: string;
-	recommendation: string;
-	reference?: string;
-}
+import type { BrowserData, ScanResult } from './_analyzers';
+import {
+	analyzePerformance,
+	analyzePrivacy,
+	analyzeSecurityHeaders,
+	analyzeStandards,
+	analyzeWcag,
+	scoreToRating,
+} from './_analyzers';
 
-interface CategoryResult {
-	findings: Finding[];
-	recommendations: string[];
-}
+// Re-export types and functions that consumers need
+export type { BrowserData, CategoryResult, Finding, ScanResult, Severity } from './_analyzers';
+export { scoreToRating } from './_analyzers';
+export {
+	countSeverities,
+	explainTrackers,
+	generateExecutiveSummary,
+	generateHtmlReport,
+} from './_report';
 
-interface ScanResult {
-	targetUrl: string;
-	scannedAt: string;
-	categories: {
-		security: CategoryResult;
-		wcag: CategoryResult;
-		privacy: CategoryResult;
-	};
-	totals: { hoog: number; midden: number; laag: number };
-}
+/**
+ * Collects comprehensive browser data from a URL using Playwright.
+ * Launches a headless Chromium instance, navigates to the page, and extracts
+ * all relevant data for analysis (headers, DOM structure, cookies, resources, etc.).
+ * @param url - The target URL to scan
+ * @returns Full browser data for analysis
+ */
+async function collectBrowserData(url: string): Promise<BrowserData> {
+	console.log(`\nBrowser openen voor ${url}...`);
+	const browser = await chromium.launch({ headless: true });
+	const context = await browser.newContext();
+	const page = await context.newPage();
 
-function countSev(findings: Finding[]) {
-	let hoog = 0, midden = 0, laag = 0;
-	for (const f of findings) {
-		if (f.severity === 'critical' || f.severity === 'high') hoog++;
-		else if (f.severity === 'medium') midden++;
-		else laag++;
+	const resources: BrowserData['resources'] = [];
+	page.on('response', (resp) => {
+		resources.push({
+			url: resp.url(),
+			type: resp.request().resourceType(),
+			status: resp.status(),
+			size: Number(resp.headers()['content-length'] ?? 0),
+		});
+	});
+
+	const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+	const headers = response?.headers() ?? {};
+	const title = await page.title();
+	const lang = (await page.locator('html').getAttribute('lang')) ?? '';
+	const html = await page.content();
+	const targetDomain = new URL(url).hostname.replace(/^www\./, '');
+
+	const images = await page.locator('img').evaluateAll((els) =>
+		els.map((el) => ({
+			src: (el as HTMLImageElement).src,
+			alt: el.getAttribute('alt'),
+			role: el.getAttribute('role'),
+		})),
+	);
+
+	const headings = await page.locator('h1,h2,h3,h4,h5,h6').evaluateAll((els) =>
+		els.map((el) => ({
+			level: Number.parseInt(el.tagName.replace('H', ''), 10),
+			text: el.textContent?.trim().slice(0, 120) ?? '',
+		})),
+	);
+
+	const links = await page.locator('a[href]').evaluateAll((els) =>
+		els.slice(0, 200).map((el) => ({
+			href: (el as HTMLAnchorElement).href,
+			text: el.textContent?.trim().slice(0, 80) ?? '',
+		})),
+	);
+
+	const forms = await page.locator('form').evaluateAll((els) =>
+		els.map((form) => ({
+			action: (form as HTMLFormElement).action,
+			method: (form as HTMLFormElement).method || 'get',
+			inputs: Array.from(form.querySelectorAll('input:not([type="hidden"]),select,textarea')).map(
+				(inp) => {
+					const id = inp.getAttribute('id');
+					const hasLabel = id
+						? form.ownerDocument.querySelector(`label[for="${id}"]`) !== null
+						: false;
+					return {
+						name: inp.getAttribute('name') ?? '',
+						type: inp.getAttribute('type') ?? 'text',
+						hasLabel:
+							hasLabel || !!inp.getAttribute('aria-label') || !!inp.getAttribute('aria-labelledby'),
+						ariaLabel: inp.getAttribute('aria-label'),
+					};
+				},
+			),
+		})),
+	);
+
+	const meta: Record<string, string> = {};
+	const metaEls = await page
+		.locator('meta[name],meta[property],meta[http-equiv]')
+		.evaluateAll((els) =>
+			els.map((el) => ({
+				key:
+					el.getAttribute('name') ??
+					el.getAttribute('property') ??
+					el.getAttribute('http-equiv') ??
+					'',
+				value: el.getAttribute('content') ?? '',
+			})),
+		);
+	for (const m of metaEls) {
+		if (m.key) meta[m.key] = m.value;
 	}
-	return { hoog, midden, laag };
+
+	const cookies = (await context.cookies()).map((c) => ({
+		name: c.name,
+		domain: c.domain,
+		secure: c.secure,
+		httpOnly: c.httpOnly,
+		sameSite: c.sameSite,
+	}));
+
+	const scripts = await page.locator('script[src]').evaluateAll((els) =>
+		els.map((el) => ({
+			src: (el as HTMLScriptElement).src,
+			async: (el as HTMLScriptElement).async,
+			defer: (el as HTMLScriptElement).defer,
+			integrity: el.getAttribute('integrity'),
+			crossorigin: el.getAttribute('crossorigin'),
+		})),
+	);
+
+	const landmarks = await page
+		.locator(
+			'main,nav,header,footer,aside,section[aria-label],section[aria-labelledby],[role="main"],[role="navigation"],[role="banner"],[role="contentinfo"],[role="complementary"]',
+		)
+		.evaluateAll((els) =>
+			els.map((el) => ({
+				tag: el.tagName.toLowerCase(),
+				role: el.getAttribute('role'),
+				ariaLabel: el.getAttribute('aria-label') ?? el.getAttribute('aria-labelledby'),
+			})),
+		);
+
+	const skipLinks = await page.locator('a[href^="#"]').evaluateAll((els) =>
+		els
+			.filter((el) => {
+				const text = el.textContent?.toLowerCase() ?? '';
+				return (
+					text.includes('skip') ||
+					text.includes('hoofdinhoud') ||
+					text.includes('content') ||
+					text.includes('navigatie')
+				);
+			})
+			.map((el) => (el as HTMLAnchorElement).href),
+	);
+
+	const focusableWithoutOutline = await page.evaluate(() => {
+		const focusable = document.querySelectorAll('a,button,input,select,textarea,[tabindex]');
+		let count = 0;
+		for (const el of focusable) {
+			const style = window.getComputedStyle(el);
+			if (style.outlineStyle === 'none' && style.boxShadow === 'none') count++;
+		}
+		return count;
+	});
+
+	const externalDomains = [
+		...new Set(
+			resources
+				.map((r) => {
+					try {
+						return new URL(r.url).hostname;
+					} catch {
+						return '';
+					}
+				})
+				.filter((d) => d && !d.includes(targetDomain)),
+		),
+	];
+
+	await browser.close();
+	console.log(
+		`  ${images.length} afbeeldingen, ${links.length} links, ${headings.length} headings, ${cookies.length} cookies, ${scripts.length} scripts, ${landmarks.length} landmarks`,
+	);
+
+	return {
+		title,
+		lang,
+		headers,
+		html,
+		links,
+		images,
+		headings,
+		forms,
+		meta,
+		cookies,
+		scripts,
+		resources,
+		landmarks,
+		skipLinks,
+		focusableWithoutOutline,
+		externalDomains,
+		targetDomain,
+	};
 }
 
 /**
- * Server-side scan using fetch (no Playwright needed).
- * Checks HTTP headers, HTML meta tags, and basic structure.
+ * Runs a full Playwright-based scan of the target URL.
+ * Launches a browser, collects all page data, and runs the 5 analyzers
+ * (security, wcag, privacy, performance, standards).
+ * @param targetUrl - The HTTPS URL to scan
+ * @returns Object containing the full ScanResult and raw BrowserData
  */
-export async function scanWebsite(targetUrl: string): Promise<ScanResult> {
-	const resp = await fetch(targetUrl, {
-		headers: { 'User-Agent': 'SiteGuardian/1.0 (compliance scanner)' },
-		redirect: 'follow',
-	});
-	const headers = Object.fromEntries(resp.headers.entries());
-	const html = await resp.text();
+export async function scanWebsite(
+	targetUrl: string,
+): Promise<{ result: ScanResult; browserData: BrowserData }> {
+	const browserData = await collectBrowserData(targetUrl);
 
-	const security = analyzeHeaders(headers);
-	const wcag = analyzeHtml(html);
-	const privacy = analyzePrivacy(html, headers);
+	console.log('\nAnalyse uitvoeren (regel-gebaseerd)...');
+	const security = analyzeSecurityHeaders(browserData);
+	const wcag = analyzeWcag(browserData);
+	const privacy = analyzePrivacy(browserData);
+	const performance = analyzePerformance(browserData);
+	const standards = analyzeStandards(browserData);
 
-	const allFindings = [...security.findings, ...wcag.findings, ...privacy.findings];
+	const weights = { security: 0.25, wcag: 0.25, privacy: 0.2, performance: 0.15, standards: 0.15 };
+	const overallScore = Math.round(
+		security.score * weights.security +
+			wcag.score * weights.wcag +
+			privacy.score * weights.privacy +
+			performance.score * weights.performance +
+			standards.score * weights.standards,
+	);
 
-	return {
+	const result: ScanResult = {
 		targetUrl,
 		scannedAt: new Date().toISOString(),
-		categories: { security, wcag, privacy },
-		totals: countSev(allFindings),
+		categories: { security, wcag, privacy, performance, standards },
+		overallScore,
+		overallRating: scoreToRating(overallScore),
 	};
-}
 
-function analyzeHeaders(h: Record<string, string>): CategoryResult {
-	const findings: Finding[] = [];
-
-	if (!h['strict-transport-security']) {
-		findings.push({ title: 'HSTS header ontbreekt', description: 'Zonder HSTS kan een aanvaller HTTPS omzeilen via een downgrade-aanval.', severity: 'high', location: 'HTTP headers', recommendation: 'Voeg Strict-Transport-Security toe met een lange max-age.', reference: 'OWASP A05:2021' });
-	}
-	if (!h['content-security-policy']) {
-		findings.push({ title: 'Content-Security-Policy ontbreekt', description: 'Zonder CSP is de website kwetsbaarder voor cross-site scripting (XSS).', severity: 'high', location: 'HTTP headers', recommendation: 'Stel een Content-Security-Policy in.', reference: 'OWASP A03:2021' });
-	}
-	if (!h['x-content-type-options']?.includes('nosniff')) {
-		findings.push({ title: 'X-Content-Type-Options ontbreekt', description: 'Browser kan bestandstypen raden, wat tot beveiligingsproblemen kan leiden.', severity: 'medium', location: 'HTTP headers', recommendation: 'Voeg X-Content-Type-Options: nosniff toe.', reference: 'CWE-16' });
-	}
-	const xfo = h['x-frame-options']?.toLowerCase();
-	if (!xfo || (xfo !== 'deny' && xfo !== 'sameorigin')) {
-		findings.push({ title: 'X-Frame-Options ontbreekt', description: 'De website kan in een iframe geladen worden (clickjacking).', severity: 'medium', location: 'HTTP headers', recommendation: 'Voeg X-Frame-Options: DENY toe.', reference: 'CWE-1021' });
-	}
-	if (!h['referrer-policy']) {
-		findings.push({ title: 'Referrer-Policy ontbreekt', description: 'Gevoelige URL-informatie kan lekken naar externe websites.', severity: 'low', location: 'HTTP headers', recommendation: 'Voeg Referrer-Policy: strict-origin-when-cross-origin toe.', reference: 'OWASP Security Headers' });
-	}
-
-	return { findings, recommendations: findings.length > 0 ? ['Implementeer ontbrekende security headers via de webserver of reverse proxy.'] : [] };
-}
-
-function analyzeHtml(html: string): CategoryResult {
-	const findings: Finding[] = [];
-
-	if (!html.match(/<html[^>]*\slang=/i)) {
-		findings.push({ title: 'HTML lang attribuut ontbreekt', description: 'Schermlezers weten niet in welke taal de pagina is.', severity: 'high', location: '<html>', recommendation: 'Voeg lang="nl" toe aan het <html> element.', reference: 'WCAG 3.1.1' });
-	}
-	if (!html.match(/<h1[\s>]/i)) {
-		findings.push({ title: 'Geen h1 heading gevonden', description: 'Elke pagina moet minimaal één h1 heading hebben.', severity: 'medium', location: 'Document', recommendation: 'Voeg een <h1> toe.', reference: 'WCAG 1.3.1' });
-	}
-	if (!html.match(/<main[\s>]/i) && !html.match(/role=["']main["']/i)) {
-		findings.push({ title: 'Geen main landmark', description: 'Schermlezers kunnen de hoofdinhoud niet vinden.', severity: 'medium', location: 'Document', recommendation: 'Omsluit de hoofdinhoud met <main>.', reference: 'WCAG 1.3.1' });
-	}
-	if (!html.match(/<meta[^>]*name=["']viewport["']/i)) {
-		findings.push({ title: 'Viewport meta ontbreekt', description: 'Website wordt niet correct weergegeven op mobiel.', severity: 'medium', location: '<head>', recommendation: 'Voeg viewport meta tag toe.', reference: 'WCAG 1.4.10' });
-	}
-
-	const imgNoAlt = html.match(/<img(?![^>]*alt=)[^>]*>/gi);
-	if (imgNoAlt && imgNoAlt.length > 0) {
-		findings.push({ title: `${imgNoAlt.length} afbeelding(en) zonder alt tekst`, description: 'Afbeeldingen zonder alt zijn ontoegankelijk voor schermlezers.', severity: imgNoAlt.length > 5 ? 'high' : 'medium', location: 'Afbeeldingen', recommendation: 'Voeg beschrijvende alt tekst toe.', reference: 'WCAG 1.1.1' });
-	}
-
-	return { findings, recommendations: findings.length > 0 ? ['Voer een volledige WCAG 2.2 AA audit uit.'] : [] };
-}
-
-function analyzePrivacy(html: string, headers: Record<string, string>): CategoryResult {
-	const findings: Finding[] = [];
-
-	const trackers = ['google-analytics.com', 'googletagmanager.com', 'facebook.net', 'hotjar.com', 'clarity.ms', 'doubleclick.net'];
-	const found = trackers.filter((t) => html.includes(t));
-	if (found.length > 0) {
-		findings.push({ title: `${found.length} tracker(s) gedetecteerd`, description: `Tracking-diensten gevonden: ${found.join(', ')}. Dit vereist voorafgaande toestemming.`, severity: 'high', location: found.join(', '), recommendation: 'Laad tracking scripts pas na expliciete toestemming (opt-in).', reference: 'AVG Art. 6 / ePrivacy Art. 5(3)' });
-	}
-
-	if (!html.match(/privacy|privacybeleid|privacyverklaring/i)) {
-		findings.push({ title: 'Geen link naar privacyverklaring', description: 'Er is geen zichtbare link naar een privacybeleid.', severity: 'high', location: 'Footer', recommendation: 'Plaats een link naar de privacyverklaring.', reference: 'AVG Art. 13/14' });
-	}
-
-	if (!html.match(/toegankelijkheid|accessibility|digitoegankelijk/i)) {
-		findings.push({ title: 'Geen toegankelijkheidsverklaring', description: 'Overheidswebsites zijn verplicht een toegankelijkheidsverklaring te publiceren.', severity: 'medium', location: 'Footer', recommendation: 'Publiceer een toegankelijkheidsverklaring.', reference: 'Wdo' });
-	}
-
-	return { findings, recommendations: findings.length > 0 ? ['Voer een cookie-audit uit en controleer het verwerkingsregister.'] : [] };
+	return { result, browserData };
 }
