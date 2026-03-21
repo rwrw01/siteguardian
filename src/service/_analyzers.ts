@@ -536,12 +536,12 @@ export function analyzePrivacy(data: BrowserData): CategoryResult {
 	);
 	if (privacyLinks.length === 0) {
 		findings.push({
-			title: 'Geen link naar privacyverklaring gevonden',
+			title: 'Geen link naar privacyverklaring gevonden op de homepage',
 			description:
-				'Er is geen zichtbare link naar een privacybeleid/privacyverklaring op de homepage.',
-			severity: 'high',
+				'Er is geen zichtbare link naar een privacybeleid of privacyverklaring op de homepage. Een privacyverklaring is niet verplicht op de hoofdpagina, maar moet wel eenvoudig vindbaar zijn voor bezoekers.',
+			severity: 'medium',
 			location: 'Footer/navigatie',
-			recommendation: 'Plaats een link naar de privacyverklaring in de footer van elke pagina.',
+			recommendation: 'Zorg dat de privacyverklaring eenvoudig vindbaar is, bijvoorbeeld via een link in de footer van elke pagina.',
 			reference: 'AVG Art. 13/14',
 		});
 	}

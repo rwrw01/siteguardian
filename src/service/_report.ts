@@ -136,8 +136,9 @@ export async function generateExecutiveSummary(
 	const systemPrompt = `Je bent een communicatieadviseur voor Nederlandse gemeenten. Je schrijft heldere, begrijpelijke samenvattingen voor bestuurders (wethouders, gemeentesecretarissen, directeuren) die geen technische achtergrond hebben.
 
 Regels:
-- Schrijf in platte tekst. GEEN markdown, GEEN sterretjes, GEEN opsommingstekens, GEEN kopjes.
-- Gewone lopende zinnen en alinea's.
+- Schrijf in platte tekst. GEEN markdown, GEEN sterretjes, GEEN kopjes.
+- Gebruik gewone lopende zinnen voor de inleiding en afsluiting.
+- Presenteer de bevindingen als een opsomlijst (elk punt op een nieuwe regel, begin met een streepje).
 - Gebruik geen jargon, geen afkortingen, geen Engelse termen. Als een technische term onvermijdelijk is, leg deze dan in dezelfde zin heel kort uit tussen haakjes, bijvoorbeeld "clickjacking (het onzichtbaar plaatsen van knoppen over een website zodat bezoekers onbedoeld ergens op klikken)".
 - Schrijf UITSLUITEND over de bevindingen die je krijgt aangeleverd. Verzin geen extra informatie.
 - Geef GEEN scores of punten. Geen "79 van de 100" of vergelijkbare beoordelingen.
@@ -275,16 +276,28 @@ export function generateHtmlReport(
 	const totalCount = totals.hoog + totals.midden + totals.laag;
 
 	function mdToHtml(text: string): string {
-		return text
+		const lines = text
 			.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 			.replace(/\*(.*?)\*/g, '<em>$1</em>')
 			.replace(/^#{1,3}\s+(.*)$/gm, '<strong>$1</strong>')
-			.replace(/^[-*]\s+(.*)$/gm, '$1')
 			.split('\n')
 			.map((l) => l.trim())
-			.filter((l) => l.length > 0)
-			.map((l) => `<p style="margin:0.5rem 0">${l}</p>`)
-			.join('');
+			.filter((l) => l.length > 0);
+
+		const parts: string[] = [];
+		let inList = false;
+		for (const line of lines) {
+			const isBullet = /^[-*]\s+/.test(line);
+			if (isBullet) {
+				if (!inList) { parts.push('<ul style="margin:0.5rem 0;padding-left:1.5rem">'); inList = true; }
+				parts.push(`<li style="margin:0.3rem 0">${line.replace(/^[-*]\s+/, '')}</li>`);
+			} else {
+				if (inList) { parts.push('</ul>'); inList = false; }
+				parts.push(`<p style="margin:0.5rem 0">${line}</p>`);
+			}
+		}
+		if (inList) parts.push('</ul>');
+		return parts.join('');
 	}
 
 	const aiSection = executiveSummary
