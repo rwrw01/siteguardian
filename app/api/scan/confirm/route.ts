@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { verifyScanToken } from '@/process/auth';
 import { authorizeScan } from '@/process/scan-authorization';
 import { scanWebsite } from '@/service/web-scanner';
-import { sendScanReport } from '@/integration/email';
+// Email disabled — report is served as direct download
 
 // One-time use tracking (in production, use database)
 const usedTokens = new Set<string>();
@@ -45,14 +45,17 @@ export async function GET(request: NextRequest) {
 	// Run scan
 	try {
 		const scanResult = await scanWebsite(targetUrl);
-
-		// Build and send email report
-		const subject = `Site Guardian rapport: ${domain} — ${scanResult.totals.hoog} hoog, ${scanResult.totals.midden} midden, ${scanResult.totals.laag} laag`;
 		const htmlReport = buildEmailReport(scanResult);
+		const filename = `siteguardian-${domain}-${new Date().toISOString().slice(0, 10)}.html`;
 
-		await sendScanReport(email, subject, htmlReport);
-
-		return NextResponse.redirect(new URL(`/?status=scan_complete&domain=${encodeURIComponent(domain)}`, request.url));
+		// Return as downloadable HTML file
+		return new NextResponse(htmlReport, {
+			status: 200,
+			headers: {
+				'Content-Type': 'text/html; charset=utf-8',
+				'Content-Disposition': `attachment; filename="${filename}"`,
+			},
+		});
 	} catch (err) {
 		console.error('[scan] Failed:', err);
 		return NextResponse.redirect(new URL(`/?error=scan_failed&domain=${encodeURIComponent(domain)}`, request.url));

@@ -40,7 +40,7 @@ function HomeContent() {
 				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
 					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Scan afgerond</p>
 					<p style={{ color: '#d1d5db', fontSize: 14 }}>
-						Het rapport voor <strong>{domain}</strong> is naar uw e-mail verstuurd.
+						Het rapport voor <strong>{domain}</strong> is gedownload.
 					</p>
 				</section>
 			)}
@@ -73,7 +73,7 @@ function HomeContent() {
 							/>
 							<p id="email-help" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: 4 }}>
 								U ontvangt een bevestigingsmail. Na bevestiging wordt de scan uitgevoerd
-								en het rapport naar dit adres gestuurd. U kunt alleen websites scannen
+								en het rapport als download aangeboden. U kunt alleen websites scannen
 								die bij uw e-maildomein horen.
 							</p>
 						</div>
