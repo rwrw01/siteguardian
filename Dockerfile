@@ -57,7 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 --home /home/nextjs nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=1001:1001 /app/.next/standalone ./
@@ -67,6 +67,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy Playwright browsers from builder stage
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/nextjs/.cache/ms-playwright
 COPY --from=builder /root/.cache/ms-playwright /home/nextjs/.cache/ms-playwright
 RUN chown -R 1001:1001 /home/nextjs/.cache
 
