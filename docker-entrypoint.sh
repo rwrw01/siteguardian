@@ -1,13 +1,13 @@
 #!/bin/sh
 # Read Docker secrets into environment variables.
-# Secrets are mounted as root:root 0600 — this entrypoint runs as root,
-# reads them, exports as env vars, then drops privileges to nextjs user.
+# This script runs as the nextjs user (UID 1001).
+# Secrets must be readable by this user (chmod 444 on host or via compose).
 
 for secret in /run/secrets/*; do
-  if [ -f "$secret" ]; then
+  if [ -r "$secret" ]; then
     name=$(basename "$secret" | tr '[:lower:]' '[:upper:]')
     export "$name"="$(cat "$secret")"
   fi
 done
 
-exec gosu nextjs node server.js
+exec node server.js
