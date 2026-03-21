@@ -9,9 +9,13 @@ const MISTRAL_BASE_URL = 'https://api.mistral.ai';
 
 /** Read Mistral API key from Docker secret file or environment variable. */
 function getMistralApiKey(): string | null {
-	const secretPath = '/run/secrets/mistral_api_key';
-	if (existsSync(secretPath)) {
-		return readFileSync(secretPath, 'utf-8').trim() || null;
+	try {
+		const secretPath = '/run/secrets/mistral_api_key';
+		if (existsSync(secretPath)) {
+			return readFileSync(secretPath, 'utf-8').trim() || null;
+		}
+	} catch {
+		// Permission denied or other fs error — fall through to env var
 	}
 	return process.env.MISTRAL_API_KEY ?? null;
 }

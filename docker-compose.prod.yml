@@ -32,10 +32,18 @@ services:
       HOSTNAME: "0.0.0.0"
       NODE_ENV: "production"
     secrets:
-      - mistral_api_key
-      - auth_secret
-      - resend_api_key
-      - scan_email_from
+      - source: mistral_api_key
+        uid: '1001'
+        mode: 0444
+      - source: auth_secret
+        uid: '1001'
+        mode: 0444
+      - source: resend_api_key
+        uid: '1001'
+        mode: 0444
+      - source: scan_email_from
+        uid: '1001'
+        mode: 0444
     security_opt:
       - no-new-privileges:true
     cap_drop:
