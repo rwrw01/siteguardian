@@ -34,8 +34,8 @@ services:
     secrets:
       - mistral_api_key
       - auth_secret
-      - resend_api_key
-      - scan_email_from
+      - smtp_username
+      - smtp_password
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -137,7 +137,7 @@ secrets:
     file: ./secrets/mistral_api_key
   auth_secret:
     file: ./secrets/auth_secret
-  resend_api_key:
-    file: ./secrets/resend_api_key
-  scan_email_from:
-    file: ./secrets/scan_email_from
+  smtp_username:
+    file: ./secrets/smtp_username
+  smtp_password:
+    file: ./secrets/smtp_password

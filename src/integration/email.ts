@@ -1,20 +1,29 @@
-import { Resend } from 'resend';
+import { createTransport } from 'nodemailer';
 
 import { readSecret } from '@/lib/secrets';
 
-let resendClient: Resend | null = null;
+let transporter: ReturnType<typeof createTransport> | null = null;
 
-function getResend(): Resend {
-	if (!resendClient) {
-		const apiKey = readSecret('resend_api_key', 'RESEND_API_KEY');
-		if (!apiKey) throw new Error('RESEND_API_KEY niet geconfigureerd');
-		resendClient = new Resend(apiKey);
+function getTransporter() {
+	if (!transporter) {
+		const host = '89.167.107.143';
+		const port = 465;
+		const user = readSecret('smtp_username', 'SMTP_USERNAME');
+		const pass = readSecret('smtp_password', 'SMTP_PASSWORD');
+
+		transporter = createTransport({
+			host,
+			port,
+			secure: true,
+			auth: { user, pass },
+			tls: {
+				// Mox's cert is for mail.publicvibes.nl, maar we verbinden via IP
+				// In productie: gebruik de hostname als de DNS klopt
+				servername: 'mail.publicvibes.nl',
+			},
+		});
 	}
-	return resendClient;
-}
-
-function getSenderEmail(): string {
-	return readSecret('scan_email_from', 'SCAN_EMAIL_FROM') || 'scan@publicvibes.nl';
+	return transporter;
 }
 
 export async function sendScanConfirmation(
@@ -47,19 +56,12 @@ export async function sendScanConfirmation(
 </html>`;
 
 	try {
-		const resend = getResend();
-		const { error } = await resend.emails.send({
-			from: `Site Guardian <${getSenderEmail()}>`,
-			to: [to],
+		await getTransporter().sendMail({
+			from: 'Site Guardian <info@publicvibes.nl>',
+			to,
 			subject: `Bevestig uw scan van ${domain}`,
 			html,
 		});
-
-		if (error) {
-			console.error('[email] Resend error:', JSON.stringify(error));
-			return { success: false, error: error.message };
-		}
-
 		console.log(`[email] Bevestigingsmail verstuurd naar ${to} voor ${domain}`);
 		return { success: true };
 	} catch (err) {
@@ -75,19 +77,12 @@ export async function sendScanReport(
 	htmlContent: string,
 ): Promise<{ success: boolean; error?: string }> {
 	try {
-		const resend = getResend();
-		const { error } = await resend.emails.send({
-			from: `Site Guardian <${getSenderEmail()}>`,
-			to: [to],
+		await getTransporter().sendMail({
+			from: 'Site Guardian <info@publicvibes.nl>',
+			to,
 			subject,
 			html: htmlContent,
 		});
-
-		if (error) {
-			console.error('[email] Resend error:', JSON.stringify(error));
-			return { success: false, error: error.message };
-		}
-
 		console.log(`[email] Rapport verstuurd naar ${to}`);
 		return { success: true };
 	} catch (err) {
