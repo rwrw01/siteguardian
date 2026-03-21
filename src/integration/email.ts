@@ -84,16 +84,14 @@ export async function sendScanReport(
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;max-width:520px;margin:0 auto;padding:32px;line-height:1.7">
 
 <h2 style="font-size:20px;margin-bottom:4px">Uw Site Guardian rapport</h2>
-<p style="color:#888;font-size:14px;margin-bottom:20px">Gratis website compliance scanner</p>
 
 <p>Beste ${name},</p>
 
-<p>In de bijlage vindt u het scanrapport als PDF. Het rapport bevat bevindingen op het gebied van beveiliging, toegankelijkheid, privacy, snelheid en overheidsstandaarden.</p>
+<p>U heeft een scan aangevraagd over mogelijke aandachtspunten van uw website. In de bijlage vindt u het rapport als PDF met bevindingen op het gebied van beveiliging, toegankelijkheid, privacy, snelheid en overheidsstandaarden.</p>
 
-<p>Heeft u vragen over de bevindingen? Neem gerust contact met ons op via <a href="https://publicvibes.nl" style="color:#154273">publicvibes.nl</a>.</p>
+<p>Heeft u deze scan niet aangevraagd? Dan kunt u deze e-mail negeren.</p>
 
-<hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-<p style="font-size:12px;color:#888;text-align:center">Dit rapport is gratis ter beschikking gesteld vanuit <a href="https://publicvibes.nl" style="color:#888">publicvibes.nl</a>, een open source initiatief van Ralph Wagter.</p>
+<p style="color:#888;font-size:13px;margin-top:24px">Deze scan is gratis en wordt aangeboden door <a href="https://publicvibes.nl" style="color:#154273">Public Vibes</a>, een open initiatief van Ralph Wagter om ervoor te zorgen dat publiek Nederland een stukje digitaal veiliger wordt. Meer informatie vindt u op <a href="https://publicvibes.nl" style="color:#154273">publicvibes.nl</a>.</p>
 
 </body>
 </html>`;
