@@ -27,9 +27,10 @@ function HomeContent() {
 
 			{status === 'scan_complete' && (
 				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
-					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Scan afgerond</p>
+					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Bedankt voor uw aanvraag</p>
 					<p style={{ color: '#d1d5db', fontSize: 14 }}>
-						Het rapport voor <strong>{domain}</strong> is per e-mail verstuurd naar <strong>{email}</strong>.
+						De scan van <strong>{domain}</strong> is gestart. Over enkele ogenblikken
+						ontvangt u het rapport als PDF in uw mailbox (<strong>{email}</strong>).
 					</p>
 				</section>
 			)}
@@ -102,6 +103,12 @@ function HomeContent() {
 								Een korte samenvatting in begrijpelijke taal voor wethouders en directeuren.
 								Opgesteld door AI, duidelijk als zodanig gemarkeerd.
 							</p>
+						</div>
+
+						{/* Honeypot: invisible to users, bots fill this in */}
+						<div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, overflow: 'hidden' }}>
+							<label htmlFor="website">Website</label>
+							<input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
 						</div>
 
 						<button type="submit" className="btn btn-primary">
