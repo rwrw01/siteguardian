@@ -30,9 +30,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Install chromium runtime dependencies for Playwright
+# Install chromium runtime dependencies for Playwright + gosu for privilege drop
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
+    gosu \
     libglib2.0-0 \
     libnss3 \
     libnspr4 \
@@ -75,11 +76,13 @@ RUN chown -R 1001:1001 /home/nextjs/.cache
 COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
 COPY --from=builder /app/node_modules/@playwright ./node_modules/@playwright
 
-USER 1001
+# Entrypoint reads Docker secrets into env vars, then drops to nextjs user
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
   CMD wget -q --spider http://127.0.0.1:8080/api/health || exit 1
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["docker-entrypoint.sh"]
