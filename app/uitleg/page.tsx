@@ -112,7 +112,7 @@ export default function UitlegPage() {
 					concrete acties.
 				</p>
 				<p style={{ color: '#d1d5db', lineHeight: 1.7, marginBottom: 12 }}>
-					De samenvatting wordt opgesteld door AI (DeepSeek) en is in het rapport altijd
+					De samenvatting wordt opgesteld door AI (Mistral) en is in het rapport altijd
 					duidelijk als zodanig gemarkeerd. De feitelijke bevindingen zijn en blijven
 					volledig regel-gebaseerd — de AI interpreteert alleen het resultaat, niet de scan.
 				</p>

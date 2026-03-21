@@ -19,7 +19,7 @@ Scant gemeentewebsites op beveiliging, toegankelijkheid (WCAG 2.2 AA), privacy (
 ## Architectuur
 
 - **Scan engine**: regel-gebaseerd, geen AI voor bevindingen
-- **Bestuurders-samenvatting**: optioneel, via DeepSeek (duidelijk als AI gemarkeerd)
+- **Bestuurders-samenvatting**: optioneel, via Mistral (duidelijk als AI gemarkeerd)
 - **Auth**: magic-link via e-mail (Resend), HMAC-signed tokens
 - **Autorisatie**: domein-restrictie (email moet matchen met scan-domein)
 - **Repo-analyse**: niet ingebouwd — daarvoor verwijzen we naar [Git Guardian](https://gitguardian.publicvibes.nl)

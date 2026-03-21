@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const INCLUDE_SUMMARY = !args.includes('--no-summary');
 const TARGET_URL = args.find((a) => !a.startsWith('--')) ?? 'https://www.rijssen-holten.nl';
 const OUTPUT_DIR = resolve(import.meta.dirname ?? '.', '..', 'scan-results');
-const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+const MISTRAL_BASE_URL = 'https://api.mistral.ai';
 
 // ── Types ──
 
@@ -499,11 +499,11 @@ function scoreToRating(score: number): string {
 	return 'F';
 }
 
-// ── DeepSeek bestuurders-samenvatting ──
+// ── Mistral bestuurders-samenvatting ──
 
 async function generateExecutiveSummary(result: ScanResult): Promise<string | null> {
-	if (!process.env.DEEPSEEK_API_KEY) {
-		console.log('  DeepSeek API key niet gevonden — bestuurders-samenvatting overgeslagen');
+	if (!process.env.MISTRAL_API_KEY) {
+		console.log('  Mistral API key niet gevonden — bestuurders-samenvatting overgeslagen');
 		return null;
 	}
 
@@ -511,52 +511,84 @@ async function generateExecutiveSummary(result: ScanResult): Promise<string | nu
 		r.findings.map((f) => `[${cat.toUpperCase()}] ${f.severity.toUpperCase()}: ${f.title} — ${f.description}`),
 	);
 
-	const prompt = `Je schrijft een kort, compact rapport voor een bestuurder in de Nederlandse publieke sector (wethouder, gemeentesecretaris, directeur).
-Deze persoon is GEEN technicus. Gebruik geen jargon, geen afkortingen, geen Engelse termen.
-Schrijf in platte tekst, GEEN markdown, GEEN sterretjes, GEEN opsommingstekens. Gewone lopende zinnen en alinea's.
+	const criticalCount = allFindings.filter((f) => f.includes('CRITICAL:')).length;
+	const hoogCount = allFindings.filter((f) => f.includes('HIGH:')).length;
+	const middenCount = allFindings.filter((f) => f.includes('MEDIUM:')).length;
+	const laagCount = allFindings.filter((f) => f.includes('LOW:')).length;
+	const highFindings = allFindings.filter((f) => f.includes('CRITICAL:') || f.includes('HIGH:'));
+	const otherFindings = allFindings.filter((f) => !f.includes('CRITICAL:') && !f.includes('HIGH:'));
 
-Schrijf maximaal 200 woorden. Structuur:
-1. Eén zin: wat is gescand en wat is het totaaloordeel
-2. Wat gaat goed (max 2 zinnen)
-3. Wat zijn de risico's voor de gemeente en haar inwoners (max 3 zinnen, concreet en begrijpelijk)
-4. Wat moet er als eerste gebeuren (max 2 concrete acties)
+	const systemPrompt = `Je bent een communicatieadviseur voor Nederlandse gemeenten. Je schrijft heldere, begrijpelijke samenvattingen voor bestuurders (wethouders, gemeentesecretarissen, directeuren) die geen technische achtergrond hebben.
 
-Context: Uit recent onderzoek blijkt dat veel gemeentewebsites onbewust gegevens van inwoners delen met grote techbedrijven, zonder dat inwoners hiervoor toestemming hebben gegeven. Dit rapport helpt gemeenten dit zelf te controleren.
+Regels:
+- Schrijf in platte tekst. GEEN markdown, GEEN sterretjes, GEEN opsommingstekens, GEEN kopjes.
+- Gewone lopende zinnen en alinea's.
+- Gebruik geen jargon, geen afkortingen, geen Engelse termen. Als een technische term onvermijdelijk is, leg deze dan in dezelfde zin heel kort uit tussen haakjes, bijvoorbeeld "clickjacking (het onzichtbaar plaatsen van knoppen over een website zodat bezoekers onbedoeld ergens op klikken)".
+- Schrijf UITSLUITEND over de bevindingen die je krijgt aangeleverd. Verzin geen extra informatie.
+- Geef GEEN scores of punten. Geen "79 van de 100" of vergelijkbare beoordelingen.
+- Iedere website heeft aandachtspunten — dat is normaal en verandert in de loop van de tijd. Stel de lezer gerust maar wees eerlijk over wat aandacht nodig heeft.
+- Besteed de meeste aandacht aan hoge en kritieke risico's. De overige bevindingen vat je kort samen als risico-inventarisatie.
+- Als er externe diensten van Amerikaanse bedrijven worden gebruikt (Google Analytics, Google Tag Manager, Google Fonts, Cloudflare, Facebook, Microsoft Clarity, etc.), benoem dit dan expliciet. Leg uit dat gegevens van inwoners daarmee naar servers buiten de EU worden gestuurd, wat onder de AVG een risico is.
+- Negeer eventuele HTML of tracker-uitleg in de bevindingen — vat alleen de kern samen.
+- Maximaal 250 woorden.`;
 
-Website: ${result.targetUrl}
-Totaalscore: ${result.overallScore}/100 (${result.overallRating})
-Security: ${result.categories.security.score}/100
-Toegankelijkheid: ${result.categories.wcag.score}/100
-Privacy: ${result.categories.privacy.score}/100
-Performance: ${result.categories.performance.score}/100
-Overheidsstandaarden: ${result.categories.standards.score}/100
+	const aantalIntro = [
+		criticalCount > 0 ? `${criticalCount} kritiek` : '',
+		hoogCount > 0 ? `${hoogCount} hoog-risico` : '',
+		`${middenCount} midden-risico`,
+		`${laagCount} laag-risico`,
+	].filter(Boolean).join(', ');
 
-Bevindingen:
-${allFindings.join('\n')}`;
+	const userMessage = `Schrijf een bestuurderssamenvatting voor het scanrapport van de gemeentewebsite ${result.targetUrl}.
+
+Begin met deze context: "Bij deze scan zijn ${aantalIntro} bevindingen vastgesteld. Iedere website heeft aandachtspunten — dat is normaal en verandert in de loop van de tijd. Hieronder leggen wij uit wat er is gevonden en wat uw aandacht verdient."
+
+Structuur daarna:
+1. Wat gaat goed (max 2 zinnen, stel de lezer gerust)
+2. Hoge en kritieke risico's — beschrijf per stuk concreet wat het risico is voor de gemeente en haar inwoners, en wat er moet gebeuren (dit is het belangrijkste deel)
+3. Korte risico-inventarisatie van de overige bevindingen (max 3 zinnen, geen opsomming, gewoon lopende tekst)
+
+Sluit af met deze zin, letterlijk: "Deze samenvatting is opgesteld door Mistral, een Europese AI, op basis van de zuivere regel-gebaseerde scan-uitkomsten hierboven. De bevindingen zelf zijn vastgesteld zonder AI."
+
+${highFindings.length > 0 ? `Hoge en kritieke bevindingen (besteed hier de meeste aandacht aan):
+${highFindings.join('\n')}` : 'Er zijn geen hoge of kritieke bevindingen.'}
+
+Overige bevindingen (kort samenvatten):
+${otherFindings.join('\n')}`;
 
 	try {
-		const resp = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+		const resp = await fetch(`${MISTRAL_BASE_URL}/v1/chat/completions`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+				Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
 			},
 			body: JSON.stringify({
-				model: 'deepseek-reasoner',
-				messages: [{ role: 'user', content: prompt }],
+				model: 'mistral-small-latest',
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userMessage },
+				],
 				max_tokens: 1024,
 			}),
 		});
 
 		if (!resp.ok) {
-			console.log(`  DeepSeek API fout: ${resp.status} ${resp.statusText}`);
+			console.log(`  Mistral API fout: ${resp.status} ${resp.statusText}`);
 			return null;
 		}
 
-		const data = await resp.json() as { choices: { message: { content: string } }[] };
-		return data.choices?.[0]?.message?.content?.trim() ?? null;
+		const data = await resp.json() as {
+			choices: { message: { content: string | Array<{ type: string; text?: string; thinking?: Array<{ type: string; text: string }> }> } }[]
+		};
+		const content = data.choices?.[0]?.message?.content;
+		if (!content) return null;
+		if (typeof content === 'string') return content.trim();
+		// Magistral reasoning model: content is array with { type: "thinking" } and { type: "text" } parts
+		const textPart = content.find((p) => p.type === 'text' && p.text);
+		return textPart?.text?.trim() ?? null;
 	} catch (err) {
-		console.log(`  DeepSeek niet bereikbaar: ${err}`);
+		console.log(`  Mistral niet bereikbaar: ${err}`);
 		return null;
 	}
 }
@@ -629,7 +661,7 @@ function generateHtmlReport(result: ScanResult, executiveSummary: string | null,
 				<strong style="font-size:1.1rem">Samenvatting voor bestuurders</strong>
 			</div>
 			<div style="color:#333;line-height:1.8">${mdToHtml(executiveSummary)}</div>
-			<p style="margin:0.75rem 0 0;font-size:0.8rem;color:#888;font-style:italic">Deze samenvatting is automatisch opgesteld door AI (DeepSeek) op basis van de scan-uitkomsten hieronder. De feitelijke bevindingen zijn regel-gebaseerd en onafhankelijk vastgesteld.</p>
+			<p style="margin:0.75rem 0 0;font-size:0.8rem;color:#888;font-style:italic">Deze samenvatting is automatisch opgesteld door AI (Mistral) op basis van de scan-uitkomsten hieronder. De feitelijke bevindingen zijn regel-gebaseerd en onafhankelijk vastgesteld.</p>
 		</section>` : '';
 
 	const trackerSection = trackerExplanation ? `
@@ -763,7 +795,7 @@ ${Object.entries(result.categories).map(([key, cat]) => {
 <p>Nederlandse gemeenten moeten voldoen aan de verplichte standaarden van het Forum Standaardisatie. Dit borgt dat overheidswebsites betrouwbaar, vindbaar en interoperabel zijn. Wij controleren HTTPS, de aanwezigheid van een toegankelijkheidsverklaring, responsief ontwerp en correcte metadata.</p>
 
 <h2 style="margin-top:2rem">Over dit rapport</h2>
-<p>De technische bevindingen zijn vastgesteld door geautomatiseerde, regel-gebaseerde controles. Er wordt geen AI gebruikt voor de bevindingen zelf.${executiveSummary ? ' De bestuurders-samenvatting is opgesteld door AI (DeepSeek) en is in het rapport duidelijk als zodanig gemarkeerd.' : ''}</p>
+<p>De technische bevindingen zijn vastgesteld door geautomatiseerde, regel-gebaseerde controles. Er wordt geen AI gebruikt voor de bevindingen zelf.${executiveSummary ? ' De bestuurders-samenvatting is opgesteld door AI (Mistral) en is in het rapport duidelijk als zodanig gemarkeerd.' : ''}</p>
 <p>Site Guardian is open source (EUPL-1.2), volledig gratis, en heeft geen commercieel belang. Voor het scannen van broncode en repositories: <a href="https://gitguardian.publicvibes.nl">gitguardian.publicvibes.nl</a></p>
 
 <hr style="border:none;border-top:1px solid #ddd;margin:2rem 0 1rem">
@@ -820,12 +852,12 @@ async function main() {
 		overallRating: scoreToRating(overallScore),
 	};
 
-	// DeepSeek executive summary (optional, only when requested)
+	// Mistral executive summary (optional, only when requested)
 	let executiveSummary: string | null = null;
 	if (INCLUDE_SUMMARY) {
-		const deepseekKey = process.env.DEEPSEEK_API_KEY ?? '';
-		if (deepseekKey) {
-			console.log('\nBestuurders-samenvatting genereren via DeepSeek...');
+		const mistralKey = process.env.MISTRAL_API_KEY ?? '';
+		if (mistralKey) {
+			console.log('\nBestuurders-samenvatting genereren via Mistral...');
 			executiveSummary = await generateExecutiveSummary(result);
 			if (executiveSummary) console.log('  Samenvatting ontvangen');
 		} else {
@@ -869,7 +901,7 @@ async function main() {
 		const name = { security: 'Beveiliging', wcag: 'Toegankelijk', privacy: 'Privacy', performance: 'Snelheid', standards: 'Standaarden' }[key] ?? key;
 		console.log(`${name.padEnd(15)} ${String(cat.score).padStart(3)}/100  hoog:${c.hoog} midden:${c.midden} laag:${c.laag}`);
 	}
-	if (executiveSummary) console.log('AI-samenvatting: ja (DeepSeek)');
+	if (executiveSummary) console.log('AI-samenvatting: ja (Mistral)');
 	console.log(`\nRapport: scan-results/${baseName}.html`);
 	console.log(`JSON:    scan-results/${baseName}.json`);
 }

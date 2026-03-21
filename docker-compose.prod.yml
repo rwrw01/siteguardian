@@ -32,7 +32,7 @@ services:
       HOSTNAME: "0.0.0.0"
       NODE_ENV: "production"
     secrets:
-      - deepseek_api_key
+      - mistral_api_key
       - auth_secret
       - resend_api_key
       - scan_email_from
@@ -133,8 +133,8 @@ networks:
 secrets:
   db_password:
     file: ./secrets/db_password
-  deepseek_api_key:
-    file: ./secrets/deepseek_api_key
+  mistral_api_key:
+    file: ./secrets/mistral_api_key
   auth_secret:
     file: ./secrets/auth_secret
   resend_api_key:

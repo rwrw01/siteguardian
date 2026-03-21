@@ -72,7 +72,7 @@ services:
       DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
       REDIS_URL: "redis://${REDIS_HOST}:${REDIS_PORT}"
       NODE_ENV: "production"
-      DEEPSEEK_API_KEY_FILE: /run/secrets/deepseek_api_key
+      MISTRAL_API_KEY_FILE: /run/secrets/mistral_api_key
       GITHUB_TOKEN_FILE: /run/secrets/github_token
     security_opt:
       - no-new-privileges:true
@@ -104,7 +104,7 @@ services:
       redis:
         condition: service_healthy
     secrets:
-      - deepseek_api_key
+      - mistral_api_key
       - github_token
 
   postgres:
@@ -204,7 +204,7 @@ secrets:
     file: ./secrets/keycloak_client_id
   keycloak_client_secret:
     file: ./secrets/keycloak_client_secret
-  deepseek_api_key:
-    file: ./secrets/deepseek_api_key
+  mistral_api_key:
+    file: ./secrets/mistral_api_key
   github_token:
     file: ./secrets/github_token
