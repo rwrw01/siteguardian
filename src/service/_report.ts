@@ -1,9 +1,20 @@
 // Internal module: HTML report generation and tracker explanation for site scans.
 // Prefixed with _ to indicate internal helper (not for direct import outside service layer).
 
+import { existsSync, readFileSync } from 'node:fs';
+
 import type { BrowserData, Finding, ScanResult } from './_analyzers';
 
 const MISTRAL_BASE_URL = 'https://api.mistral.ai';
+
+/** Read Mistral API key from Docker secret file or environment variable. */
+function getMistralApiKey(): string | null {
+	const secretPath = '/run/secrets/mistral_api_key';
+	if (existsSync(secretPath)) {
+		return readFileSync(secretPath, 'utf-8').trim() || null;
+	}
+	return process.env.MISTRAL_API_KEY ?? null;
+}
 
 /**
  * Counts findings by severity bucket (hoog/midden/laag).
@@ -99,7 +110,8 @@ export async function generateExecutiveSummary(
 	result: ScanResult,
 	trackerDetails?: string,
 ): Promise<string | null> {
-	if (!process.env.MISTRAL_API_KEY) {
+	const apiKey = getMistralApiKey();
+	if (!apiKey) {
 		console.log('  Mistral API key niet gevonden — bestuurders-samenvatting overgeslagen');
 		return null;
 	}
@@ -166,7 +178,7 @@ ${otherFindings.join('\n')}${trackerDetails ? `\n\nAanvullende context over gevo
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+				Authorization: `Bearer ${apiKey}`,
 			},
 			body: JSON.stringify({
 				model: 'mistral-small-latest',
