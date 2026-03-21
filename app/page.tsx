@@ -25,6 +25,17 @@ function HomeContent() {
 				</p>
 			</section>
 
+			{status === 'email_sent' && (
+				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
+					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Controleer uw e-mail</p>
+					<p style={{ color: '#d1d5db', fontSize: 14 }}>
+						We hebben een bevestigingsmail gestuurd naar <strong>{email}</strong>.
+						Klik op de link in de e-mail om de scan van <strong>{domain}</strong> te starten.
+						De link is 7 dagen geldig.
+					</p>
+				</section>
+			)}
+
 			{status === 'scan_complete' && (
 				<section style={{ background: 'rgba(46, 160, 67, 0.15)', border: '1px solid rgba(46, 160, 67, 0.3)', borderRadius: 8, padding: 20, maxWidth: 540, margin: '0 auto 2rem', textAlign: 'center' }}>
 					<p style={{ color: '#86efac', fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Scan afgerond</p>
@@ -61,8 +72,9 @@ function HomeContent() {
 								aria-describedby="email-help"
 							/>
 							<p id="email-help" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: 4 }}>
-								Uw e-maildomein bepaalt welke websites u mag scannen.
-								Het rapport wordt direct als download aangeboden.
+								U ontvangt een bevestigingsmail. Na bevestiging wordt de scan uitgevoerd
+								en het rapport als download aangeboden. U kunt alleen websites scannen
+								die bij uw e-maildomein horen.
 							</p>
 						</div>
 

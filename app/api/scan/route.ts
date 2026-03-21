@@ -1,14 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { generateScanToken } from '@/process/auth';
 import { authorizeScan } from '@/process/scan-authorization';
-import {
-	explainTrackers,
-	explainTrackersPlaintext,
-	generateExecutiveSummary,
-	generateHtmlReport,
-	scanWebsite,
-} from '@/service/web-scanner';
+import { sendScanConfirmation } from '@/integration/email';
 
 const scanRequestSchema = z.object({
 	email: z.string().email().max(254),
@@ -59,34 +54,32 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
+	// Generate scan token (7 days, HMAC-signed, contains email + url + summary flag)
+	const token = generateScanToken({ email, targetUrl, includeSummary });
+	const baseUrl = process.env.NEXTAUTH_URL ?? `https://${request.headers.get('host')}`;
+	const confirmUrl = `${baseUrl}/api/scan/confirm?token=${encodeURIComponent(token)}`;
+
 	const domain = new URL(targetUrl).hostname.replace(/^www\./, '');
 
-	try {
-		const { result, browserData } = await scanWebsite(targetUrl);
-		const trackerContext = explainTrackersPlaintext(browserData);
-		const summary = includeSummary ? await generateExecutiveSummary(result, trackerContext) : null;
-		const trackerHtml = explainTrackers(browserData);
-		const htmlReport = generateHtmlReport(result, summary, trackerHtml);
-
-		const filename = `siteguardian-${domain}-${new Date().toISOString().slice(0, 10)}.html`;
-
-		return new NextResponse(htmlReport, {
-			status: 200,
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Content-Disposition': `attachment; filename="${filename}"`,
-			},
-		});
-	} catch (err) {
-		console.error('[scan] Failed:', err);
+	// Send confirmation email
+	const emailResult = await sendScanConfirmation(email, domain, confirmUrl);
+	if (!emailResult.success) {
 		return NextResponse.json(
 			{
 				type: 'about:blank',
-				title: 'Scan mislukt',
+				title: 'E-mail mislukt',
 				status: 500,
-				detail: `De scan van ${domain} is mislukt.`,
+				detail: `Kon bevestigingsmail niet versturen: ${emailResult.error}`,
 			},
 			{ status: 500 },
 		);
 	}
+
+	// Redirect to confirmation page
+	return NextResponse.redirect(
+		new URL(
+			`/?status=email_sent&domain=${encodeURIComponent(domain)}&email=${encodeURIComponent(email)}`,
+			request.url,
+		),
+	);
 }
