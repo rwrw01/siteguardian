@@ -41,9 +41,11 @@ function HomeContent() {
 					<p style={{ color: '#fca5a5', fontSize: 14 }}>
 						{error === 'token_used' && 'Deze scanlink is al gebruikt. Vraag een nieuwe scan aan.'}
 						{error === 'scan_failed' && `De scan van ${domain ?? 'de website'} is mislukt. Probeer het opnieuw.`}
-						{error === 'unauthorized' && 'U bent niet gemachtigd om deze website te scannen.'}
+						{error === 'unauthorized' && 'U kunt alleen websites scannen die bij uw e-maildomein horen. Gebruik een e-mailadres van de organisatie die u wilt scannen.'}
 						{error === 'missing_token' && 'Ongeldige link. Vraag een nieuwe scan aan.'}
-						{!['token_used', 'scan_failed', 'unauthorized', 'missing_token'].includes(error) && `Er ging iets mis: ${error}`}
+						{error === 'validation' && 'Controleer of alle velden correct zijn ingevuld.'}
+						{error === 'rate_limit' && `${domain ? `${domain} is recent al gescand.` : 'U heeft te veel scans aangevraagd.'} Probeer het over een uur opnieuw.`}
+						{!['token_used', 'scan_failed', 'unauthorized', 'missing_token', 'validation', 'rate_limit'].includes(error) && `Er ging iets mis: ${error}`}
 					</p>
 				</section>
 			)}

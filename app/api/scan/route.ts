@@ -133,25 +133,17 @@ export async function POST(request: NextRequest) {
 		body = await request.json();
 	}
 
-	const parsed = scanRequestSchema.safeParse(body);
-	if (!parsed.success) {
-		return NextResponse.json(
-			{
-				type: 'about:blank',
-				title: 'Validatiefout',
-				status: 400,
-				detail: parsed.error.issues.map((i) => i.message).join('; '),
-			},
-			{ status: 400 },
-		);
-	}
-
-	const { name, email, targetUrl, includeSummary } = parsed.data;
-
 	// Determine public base URL (behind Traefik, request.url is internal)
 	const proto = request.headers.get('x-forwarded-proto') ?? 'https';
 	const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'siteguardian.publicvibes.nl';
 	const baseUrl = `${proto}://${host}`;
+
+	const parsed = scanRequestSchema.safeParse(body);
+	if (!parsed.success) {
+		return NextResponse.redirect(new URL('/?error=validation', baseUrl));
+	}
+
+	const { name, email, targetUrl, includeSummary } = parsed.data;
 
 	// Honeypot check — bots fill in the hidden "website" field
 	if (parsed.data.website) {
@@ -164,9 +156,8 @@ export async function POST(request: NextRequest) {
 	// Domain authorization check
 	const authResult = authorizeScan(email, targetUrl);
 	if (!authResult.allowed) {
-		return NextResponse.json(
-			{ type: 'about:blank', title: 'Geen toegang', status: 403, detail: authResult.reason },
-			{ status: 403 },
+		return NextResponse.redirect(
+			new URL(`/?error=unauthorized`, baseUrl),
 		);
 	}
 
@@ -175,28 +166,14 @@ export async function POST(request: NextRequest) {
 		?? request.headers.get('x-real-ip')
 		?? 'unknown';
 	if (isRateLimited(ip, ipRequests, MAX_PER_IP)) {
-		return NextResponse.json(
-			{
-				type: 'about:blank',
-				title: 'Te veel aanvragen',
-				status: 429,
-				detail: 'U kunt maximaal 3 scans per uur aanvragen. Probeer het later opnieuw.',
-			},
-			{ status: 429 },
-		);
+		return NextResponse.redirect(new URL('/?error=rate_limit', baseUrl));
 	}
 
 	// Rate limiting by target domain
 	const domain = new URL(targetUrl).hostname.replace(/^www\./, '');
 	if (isRateLimited(domain, domainRequests, MAX_PER_DOMAIN)) {
-		return NextResponse.json(
-			{
-				type: 'about:blank',
-				title: 'Te veel aanvragen',
-				status: 429,
-				detail: `${domain} is recent al gescand. Probeer het over een uur opnieuw.`,
-			},
-			{ status: 429 },
+		return NextResponse.redirect(
+			new URL(`/?error=rate_limit&domain=${encodeURIComponent(domain)}`, baseUrl),
 		);
 	}
 
