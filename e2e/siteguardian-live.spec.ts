@@ -47,7 +47,7 @@ test.describe('siteguardian.publicvibes.nl — live E2E', () => {
 
 		const submitBtn = page.locator('button[type="submit"]');
 		await expect(submitBtn).toBeVisible();
-		await expect(submitBtn).toHaveText(/scan starten/i);
+		await expect(submitBtn).toHaveText(/scan aanvragen/i);
 
 		// Checkbox for summary
 		const checkbox = page.locator('input[name="includeSummary"]');
@@ -69,14 +69,11 @@ test.describe('siteguardian.publicvibes.nl — live E2E', () => {
 		]));
 	});
 
-	test('login pagina laadt', async ({ page }) => {
-		await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
-
-		const emailInput = page.locator('input[type="email"]');
-		await expect(emailInput).toBeVisible();
-
-		const submitBtn = page.locator('button[type="submit"]');
-		await expect(submitBtn).toHaveText(/inloglink/i);
+	test('uitleg pagina bevat waarom-sectie', async ({ page }) => {
+		await page.goto(`${BASE}/uitleg`, { waitUntil: 'networkidle' });
+		const content = await page.textContent('body');
+		expect(content).toContain('gratis');
+		expect(content).toContain('Waarom');
 	});
 
 	test('health endpoint JSON response', async ({ page }) => {
