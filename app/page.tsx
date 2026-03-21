@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 
 function HomeContent() {
 	const params = useSearchParams();
@@ -9,6 +9,7 @@ function HomeContent() {
 	const error = params.get('error');
 	const domain = params.get('domain');
 	const email = params.get('email');
+	const [submitting, setSubmitting] = useState(false);
 
 	return (
 		<>
@@ -50,7 +51,7 @@ function HomeContent() {
 			{!status && (
 				<section className="card" aria-labelledby="scan-heading" style={{ maxWidth: 540, margin: '0 auto 2rem' }}>
 					<h2 id="scan-heading" style={{ fontSize: 18, marginBottom: 20 }}>Nieuwe scan</h2>
-					<form action="/api/scan" method="POST">
+					<form action="/api/scan" method="POST" onSubmit={() => setSubmitting(true)}>
 						<div style={{ marginBottom: 16 }}>
 							<label htmlFor="name">Uw naam</label>
 							<input
@@ -111,8 +112,8 @@ function HomeContent() {
 							<input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
 						</div>
 
-						<button type="submit" className="btn btn-primary">
-							Scan aanvragen
+						<button type="submit" className="btn btn-primary" disabled={submitting} style={submitting ? { opacity: 0.6, cursor: 'wait' } : {}}>
+							{submitting ? 'Scan wordt aangevraagd...' : 'Scan aanvragen'}
 						</button>
 					</form>
 				</section>
@@ -153,10 +154,11 @@ function HomeContent() {
 				textAlign: 'center',
 			}}>
 				<p style={{ fontSize: 15, color: '#d1d5db', lineHeight: 1.7 }}>
-					Gemeenten komen regelmatig in het nieuws omdat hun website gegevens van inwoners
-					deelt zonder toestemming. Raadsleden stellen vragen, ambtenaren moeten in allerijl
-					antwoorden leveren. Ondertussen vragen onderzoekers honderden euro's voor een
-					rapport. Natuurlijk moeten gemeenten de boel op orde hebben — maar dat kan ook
+					Gemeenten zijn in het nieuws gekomen omdat hun websites gegevens van inwoners
+					delen met externe partijen zonder daarvoor toestemming te vragen. Raadsleden
+					stellen vragen, ambtenaren moeten in allerijl antwoorden leveren. Ondertussen
+					vragen de onderzoekers enkele honderden euro's voor een gedetailleerd rapport.
+					Uiteraard moeten gemeenten hun digitale zaken op orde hebben — maar dat kan ook
 					zonder kosten. Daarom dit initiatief.
 				</p>
 			</section>
