@@ -23,6 +23,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 
+# Entrypoint reads Docker secrets and constructs DATABASE_URL from components
+COPY migrate-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
+ENTRYPOINT ["migrate-entrypoint.sh"]
+
 # Runtime stage — non-root, Playwright chromium available
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app

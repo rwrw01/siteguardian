@@ -8,8 +8,10 @@ services:
       - sg-internal
       - net-fe-siteguardian
     environment:
-      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-      REDIS_URL: "redis://${REDIS_HOST}:${REDIS_PORT}"
+      DB_HOST: postgres
+      DB_USER: siteguardian
+      DB_NAME: siteguardian
+      REDIS_HOST: redis
       PORT: "8080"
       NODE_ENV: "production"
       NEXTAUTH_URL: "https://${PUBLIC_DOMAIN}"
@@ -57,6 +59,7 @@ services:
       - "traefik.http.services.siteguardian.loadbalancer.server.port=8080"
       - "traefik.http.routers.siteguardian.middlewares=crowdsec@file,security-headers@file,rate-limit@file"
     secrets:
+      - db_password
       - nextauth_secret
       - keycloak_client_id
       - keycloak_client_secret
@@ -69,8 +72,10 @@ services:
     networks:
       - sg-internal
     environment:
-      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-      REDIS_URL: "redis://${REDIS_HOST}:${REDIS_PORT}"
+      DB_HOST: postgres
+      DB_USER: siteguardian
+      DB_NAME: siteguardian
+      REDIS_HOST: redis
       NODE_ENV: "production"
       MISTRAL_API_KEY_FILE: /run/secrets/mistral_api_key
       GITHUB_TOKEN_FILE: /run/secrets/github_token
@@ -104,6 +109,7 @@ services:
       redis:
         condition: service_healthy
     secrets:
+      - db_password
       - mistral_api_key
       - github_token
 

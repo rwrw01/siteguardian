@@ -1,7 +1,5 @@
 #!/bin/sh
-# Read Docker secrets into environment variables.
-# This script runs as the nextjs user (UID 1001).
-# Secrets must be readable by this user (chmod 444 on host or via compose).
+# Read Docker secrets into environment variables for the worker container.
 
 for secret in /run/secrets/*; do
   if [ -r "$secret" ]; then
@@ -19,4 +17,4 @@ if [ -z "$REDIS_URL" ]; then
   export REDIS_URL="redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}"
 fi
 
-exec node server.js
+exec "$@"
