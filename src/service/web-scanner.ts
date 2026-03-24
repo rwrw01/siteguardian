@@ -17,6 +17,7 @@ import {
 // Re-export types and functions that consumers need
 export type { BrowserData, CategoryResult, Finding, ScanResult, Severity } from './_analyzers';
 export { scoreToRating } from './_analyzers';
+export { parseHar, harToBrowserData } from './har-parser';
 export {
 	countSeverities,
 	explainTrackers,
@@ -211,17 +212,10 @@ async function collectBrowserData(url: string): Promise<BrowserData> {
 }
 
 /**
- * Runs a full Playwright-based scan of the target URL.
- * Launches a browser, collects all page data, and runs the 5 analyzers
- * (security, wcag, privacy, performance, standards).
- * @param targetUrl - The HTTPS URL to scan
- * @returns Object containing the full ScanResult and raw BrowserData
+ * Runs the 5 analyzers on pre-collected BrowserData.
+ * Shared between live Playwright scans and HAR-based scans.
  */
-export async function scanWebsite(
-	targetUrl: string,
-): Promise<{ result: ScanResult; browserData: BrowserData }> {
-	const browserData = await collectBrowserData(targetUrl);
-
+export function analyzeFromBrowserData(targetUrl: string, browserData: BrowserData): ScanResult {
 	console.log('\nAnalyse uitvoeren (regel-gebaseerd)...');
 	const security = analyzeSecurityHeaders(browserData);
 	const wcag = analyzeWcag(browserData);
@@ -238,14 +232,27 @@ export async function scanWebsite(
 			standards.score * weights.standards,
 	);
 
-	const result: ScanResult = {
+	return {
 		targetUrl,
 		scannedAt: new Date().toISOString(),
 		categories: { security, wcag, privacy, performance, standards },
 		overallScore,
 		overallRating: scoreToRating(overallScore),
 	};
+}
 
+/**
+ * Runs a full Playwright-based scan of the target URL.
+ * Launches a browser, collects all page data, and runs the 5 analyzers
+ * (security, wcag, privacy, performance, standards).
+ * @param targetUrl - The HTTPS URL to scan
+ * @returns Object containing the full ScanResult and raw BrowserData
+ */
+export async function scanWebsite(
+	targetUrl: string,
+): Promise<{ result: ScanResult; browserData: BrowserData }> {
+	const browserData = await collectBrowserData(targetUrl);
+	const result = analyzeFromBrowserData(targetUrl, browserData);
 	return { result, browserData };
 }
 
@@ -284,7 +291,8 @@ export async function renderPdf(html: string): Promise<Buffer> {
 		printBackground: true,
 		displayHeaderFooter: true,
 		headerTemplate: '<span></span>',
-		footerTemplate: '<div style="font-size:8pt;color:#888;width:100%;text-align:center;padding:0 15mm">Site Guardian — publicvibes.nl &nbsp;|&nbsp; Pagina <span class="pageNumber"></span> van <span class="totalPages"></span></div>',
+		footerTemplate:
+			'<div style="font-size:8pt;color:#888;width:100%;text-align:center;padding:0 15mm">Site Guardian — publicvibes.nl &nbsp;|&nbsp; Pagina <span class="pageNumber"></span> van <span class="totalPages"></span></div>',
 	});
 	await browser.close();
 	return Buffer.from(pdf);
