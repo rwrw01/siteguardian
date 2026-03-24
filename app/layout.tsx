@@ -8,7 +8,22 @@ export const metadata: Metadata = {
 		default: 'Site Guardian',
 		template: '%s | Site Guardian',
 	},
-	description: 'Gratis website compliance scanner voor Nederlandse publieke instellingen',
+	description: 'Gratis website compliance scanner voor Nederlandse publieke instellingen. Controleert beveiliging, toegankelijkheid (WCAG), privacy (AVG) en overheidsstandaarden.',
+	keywords: ['website scanner', 'compliance', 'gemeente', 'overheid', 'WCAG', 'AVG', 'beveiliging', 'toegankelijkheid'],
+	authors: [{ name: 'PublicVibes' }],
+	creator: 'PublicVibes',
+	publisher: 'PublicVibes',
+	category: 'technology',
+	classification: 'Information Technology',
+	openGraph: {
+		title: 'Site Guardian — Gratis website compliance scanner',
+		description: 'Scan gemeentewebsites op beveiliging, toegankelijkheid, privacy en overheidsstandaarden. Open source, geen kosten.',
+		url: 'https://siteguardian.publicvibes.nl',
+		siteName: 'Site Guardian',
+		locale: 'nl_NL',
+		type: 'website',
+	},
+	metadataBase: new URL('https://siteguardian.publicvibes.nl'),
 };
 
 export const viewport: Viewport = {
