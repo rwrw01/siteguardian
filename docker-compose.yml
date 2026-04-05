@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/rwrw01/siteguardian:latest
     container_name: siteguardian-app
     networks:
       - sg-internal

@@ -6,11 +6,45 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  IMAGE: ghcr.io/rwrw01/siteguardian
+
 jobs:
-  deploy:
-    name: Deploy siteguardian
+  build:
+    name: Build & push image
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in bij ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build en push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: runner
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy naar VPS-001
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
 
     steps:
       - name: Tailscale verbinden via Headscale
@@ -28,4 +62,4 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             sudo /opt/scripts/deploy.sh siteguardian app
-          command_timeout: 10m
+          command_timeout: 8m
