@@ -13,6 +13,7 @@ services:
       DB_NAME: siteguardian
       REDIS_HOST: redis
       PORT: "8080"
+      HOSTNAME: "0.0.0.0"
       NODE_ENV: "production"
       NEXTAUTH_URL: "https://${PUBLIC_DOMAIN}"
       NEXTAUTH_SECRET_FILE: /run/secrets/nextauth_secret
