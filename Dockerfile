@@ -19,6 +19,9 @@ RUN npm run build
 FROM node:22-bookworm-slim AS migrator
 WORKDIR /app
 
+# Required for Prisma to detect OpenSSL 3.x (Bookworm default) on ARM64
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
