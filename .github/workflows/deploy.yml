@@ -18,7 +18,7 @@ jobs:
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
           args: "--login-server=https://vpn.athide.nl"
-          version: latest
+          version: "1.96.4"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
