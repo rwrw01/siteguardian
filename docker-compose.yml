@@ -64,55 +64,7 @@ services:
       - nextauth_secret
       - keycloak_client_id
       - keycloak_client_secret
-
-  worker:
-    build:
-      context: .
-      dockerfile: worker.Dockerfile
-    container_name: siteguardian-worker
-    networks:
-      - sg-internal
-    environment:
-      DB_HOST: postgres
-      DB_USER: siteguardian
-      DB_NAME: siteguardian
-      REDIS_HOST: redis
-      NODE_ENV: "production"
-      MISTRAL_API_KEY_FILE: /run/secrets/mistral_api_key
-      GITHUB_TOKEN_FILE: /run/secrets/github_token
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    read_only: true
-    tmpfs:
-      - /tmp:noexec,nosuid,nodev
-    deploy:
-      resources:
-        limits:
-          memory: 1024M
-          pids: 100
-    restart: on-failure:5
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD-SHELL", "node -e 'process.exit(0)' || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    secrets:
-      - db_password
       - mistral_api_key
-      - github_token
 
   postgres:
     image: postgres:16-alpine
@@ -214,5 +166,3 @@ secrets:
     file: ./secrets/keycloak_client_secret
   mistral_api_key:
     file: ./secrets/mistral_api_key
-  github_token:
-    file: ./secrets/github_token

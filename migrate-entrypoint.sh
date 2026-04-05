@@ -9,8 +9,10 @@ for secret in /run/secrets/*; do
 done
 
 # Construct DATABASE_URL from component env vars (avoids hardcoded connection strings in compose)
+# URL-encode the password so special chars like + are not misinterpreted by Prisma CLI
 if [ -z "$DATABASE_URL" ] && [ -n "$DB_PASSWORD" ]; then
-  export DATABASE_URL="postgresql://${DB_USER:-siteguardian}:${DB_PASSWORD}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-siteguardian}"
+  ENCODED_PASSWORD=$(node -e "process.stdout.write(encodeURIComponent(process.env.DB_PASSWORD))")
+  export DATABASE_URL="postgresql://${DB_USER:-siteguardian}:${ENCODED_PASSWORD}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-siteguardian}"
 fi
 
 exec "$@"
