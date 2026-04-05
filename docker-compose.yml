@@ -161,6 +161,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis-siteguardian
+    user: "999:999"
     networks:
       - sg-internal
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
